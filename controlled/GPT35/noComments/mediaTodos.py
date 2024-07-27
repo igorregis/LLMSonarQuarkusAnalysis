@@ -15,16 +15,16 @@ def main():
     data = []
     print(os.getcwd())
 
-    loadData(data, 'controlledAfterRefactorGPT35.json')
-    loadData(data, 'sonarAndLLM-2.json')
-    loadData(data, 'sonarAndLLM-3.json')
-    loadData(data, 'sonarAndLLM-4.json')
-    loadData(data, 'sonarAndLLM-5.json')
-    loadData(data, 'sonarAndLLM-6.json')
-    loadData(data, 'sonarAndLLM-7.json')
-    loadData(data, 'sonarAndLLM-8.json')
-    loadData(data, 'sonarAndLLM-9.json')
-    loadData(data, 'sonarAndLLM-10.json')
+    loadData(data, 'controlledNoCommentsGPT35.json')
+    loadData(data, 'controlledNoCommentsGPT35-2.json')
+    loadData(data, 'controlledNoCommentsGPT35-3.json')
+    loadData(data, 'controlledNoCommentsGPT35-4.json')
+    loadData(data, 'controlledNoCommentsGPT35-5.json')
+    loadData(data, 'controlledNoCommentsGPT35-6.json')
+    loadData(data, 'controlledNoCommentsGPT35-7.json')
+    loadData(data, 'controlledNoCommentsGPT35-8.json')
+    loadData(data, 'controlledNoCommentsGPT35-9.json')
+    loadData(data, 'controlledNoCommentsGPT35-10.json')
 
     # Converter a lista em um DataFrame
     df = pd.DataFrame(data, columns=['score', 'code_smells', 'cognitive_complexity', 'comment_lines_density',
