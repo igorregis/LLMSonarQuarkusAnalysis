@@ -19,65 +19,43 @@ def main():
 
     # Defina as listas de dados e seus respectivos diretórios
     data_lists = {
-        'after_refactor_data': 'AfterRefactor',
-        'bad_names_data': 'BadNames',
-        'no_comments_data': 'NoComments',
-        'original_data': 'Original'
+        'clean_code': 'CleanCode',
+        'bad_names_no_comments': 'BadNamesNoComments',
+        'bad_names': 'BadNames',
+        'no_comments': 'NoComments',
+        'original': 'Original'
     }
 
+    dfs = {}
     # Itere sobre cada lista de dados e diretório
-    for data_list, directory in data_lists.items():
+    for nome_amigavel, directory in data_lists.items():
         # Inicialize a lista de dados
-        data_lists[data_list] = []
+        data_lists[nome_amigavel] = []
 
         # Carregue os dados de 10 arquivos no diretório
-        for i in range(1, 11):
-            # Se i é 1, o nome do arquivo não tem um sufixo
-            if i == 1:
-                file_name = f'{directory[0].lower() + directory[1:]}/controlled{directory}{common_file_name}.json'
-            # Caso contrário, o nome do arquivo tem um sufixo "-i"
-            else:
-                file_name = f'{directory[0].lower() + directory[1:]}/controlled{directory}{common_file_name}-{i}.json'
+        for i in range(1, 101):
+            file_name = f'{directory}/controlled{directory}{common_file_name}-{i}.json'
 
             # Carregue os dados do arquivo
-            loadData(data_lists[data_list], file_name)
+            loadData(data_lists[nome_amigavel], file_name)
 
-    print(data_lists['original_data'])
+        dfs[nome_amigavel] = pd.DataFrame(data_lists[nome_amigavel], columns=['name', 'score', 'code_smells', 'cognitive_complexity',
+                                       'comment_lines_density','complexity', 'lines', 'sqale_rating', 'statements'])
+        print(f"\nEstatisticas para {nome_amigavel}\n")
+        calcular_estatisticas(dfs[nome_amigavel])
+        calcular_variacao(dfs[nome_amigavel])
 
-    # Converter a lista em um DataFrame
-    df_original = pd.DataFrame(data_lists['original_data'], columns=['name', 'score', 'code_smells', 'cognitive_complexity', 'comment_lines_density',
-                                     'complexity', 'lines', 'sqale_rating', 'statements'])
-    df_no_comments = pd.DataFrame(data_lists['no_comments_data'], columns=['name', 'score', 'code_smells', 'cognitive_complexity', 'comment_lines_density',
-                                     'complexity', 'lines', 'sqale_rating', 'statements'])
-    df_after_refactor = pd.DataFrame(data_lists['after_refactor_data'], columns=['name', 'score', 'code_smells', 'cognitive_complexity', 'comment_lines_density',
-                                     'complexity', 'lines', 'sqale_rating', 'statements'])
-    df_bad_names = pd.DataFrame(data_lists['bad_names_data'], columns=['name', 'score', 'code_smells', 'cognitive_complexity', 'comment_lines_density',
-                                     'complexity', 'lines', 'sqale_rating', 'statements'])
-
-    print("\nEstatisticas para Original\n")
-    calcular_estatisticas(df_original)
-    calcular_variacao(df_original)
-    print("\nEstatisticas para No Comments\n")
-    calcular_estatisticas(df_no_comments)
-    calcular_variacao(df_no_comments)
-    print("\nEstatisticas para After Refactor\n")
-    calcular_estatisticas(df_after_refactor)
-    calcular_variacao(df_after_refactor)
-    print("\nEstatisticas para Bad Names\n")
-    calcular_estatisticas(df_bad_names)
-    calcular_variacao(df_bad_names)
-
-    scores_after_refactor = [row[1] for row in data_lists['after_refactor_data']]
-    scores_bad_names = [row[1] for row in data_lists['bad_names_data']]
-    scores_no_comments = [row[1] for row in data_lists['no_comments_data']]
-    scores_original = [row[1] for row in data_lists['original_data']]
     # Gerar o gráfico de boxplot
     fig, ax = plt.subplots()
-    ax.boxplot([scores_original, scores_no_comments, scores_after_refactor, scores_bad_names])
+    ax.boxplot([dfs['original'].dropna(subset=['score'])['score'],
+                dfs['no_comments'].dropna(subset=['score'])['score'],
+                dfs['bad_names_no_comments'].dropna(subset=['score'])['score'],
+                dfs['bad_names'].dropna(subset=['score'])['score'],
+                dfs['clean_code'].dropna(subset=['score'])['score']])
     ax.set_ylim([0, 100])  # Ajuste da escala do eixo Y aqui
-    ax.set_xticklabels(['Original', 'No Comments', 'After Refactor', 'Bad Names'])  # Rótulos do eixo X
+    ax.set_xticklabels(['Original', 'No Comments', 'No Comments Bad Names', 'Bad Names', 'Clean Code'], rotation=45)# Rótulos do eixo X
 
-    plt.title('Boxplot dos Scores para ' + common_file_name)
+    plt.title(f'Boxplot dos Scores para {common_file_name}')
     plt.tight_layout()
     plt.savefig('graficos/boxplot_all.png', dpi=300)  # Salvar com alta resolução
 
