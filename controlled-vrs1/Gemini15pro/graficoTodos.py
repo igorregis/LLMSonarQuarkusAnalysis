@@ -143,6 +143,9 @@ def calcular_variacao(df):
     # Agrupe por 'name' e calcule a variação (max - min) para 'score'
     score_variation = df.groupby('name')['score'].apply(lambda x: x.max() - x.min())
     print(score_variation)
+    for name, group in df.groupby('name'):
+        scores = group['score'].values
+        print(f'Desvio padrão de {name}:{np.std(scores)}')
     # Para cada 'name', calcule o valor-p do Teste de Wilcoxon
     for name, group in df.groupby('name'):
         scores = group['score'].values

@@ -28,13 +28,14 @@ def main():
         'original': 'Original'
     }
     llm_lists = {
-        'GPT4o': 'GPT4o',
-        'Claude35_sonnet': 'Claude35-sonnet',
+        # 'GPT4o': 'GPT4o',
+        # 'Claude35_sonnet': 'Claude35-sonnet',
         'Gemini15pro': 'Gemini15pro',
-        'Llama31_405b': 'Llama31-405b',
-        'GPT4o_mini': 'GPT4o-mini',
-        'Claude3_haiku': 'Claude3-haiku',
+        # 'Llama31_405b': 'Llama31-405b',
+        # 'GPT4o_mini': 'GPT4o-mini',
+        # 'Claude3_haiku': 'Claude3-haiku',
         'Gemini15flash': 'Gemini15flash',
+        'Gemini20flash': 'Gemini20flash',
         'Llama31_8b': 'Llama31-8b'
     }
 
@@ -99,19 +100,29 @@ def main():
     gerar_boxplot_sobreposto(data_lists, llm_lists, original, bad_names)
     gerar_boxplot_sobreposto(data_lists, llm_lists, original, bad_names_no_comments)
     gerar_boxplot_sobreposto(data_lists, llm_lists, original, clean_code)
+
+    # df_quarkus = loadScalabrino('ReadabilityClassifier/Original.csv')
+    # df_quarkus.columns = ['name', 'Scalabrino Score q']
+    # df_quarkus = df_quarkus.set_index('name')
+
     # teste_geral_mannwhitneyu(data_lists)
     # print(data_lists)
-    # df_geral = criar_data_frame_geral(data_lists)
+
+    df_geral = criar_data_frame_geral(data_lists)
+    print('data_list--------------------------------------\n', data_lists)
+    print('df_geral------------------------------------\n', df_geral)
+
     # matriz_correlacao_geral(df_geral)
     # print(df_geral.to_string())
-    modelos = ['GPT4o', 'GPT4o_mini', 'Gemini15pro', 'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude3_haiku']
+    # modelos = ['GPT4o', 'GPT4o_mini', 'Gemini15pro', 'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude3_haiku']
+    modelos = ['Gemini15pro', 'Gemini15flash', 'Gemini20flash', 'Llama31_8b']
     cenarios = ['original', 'bad_names', 'bad_names_no_comments', 'clean_code', 'no_comments']
     classes = ['DoubleSummaryStatistics.java', 'Month.java', 'DynamicTreeNode.java', 'ElementTreePanel.java', 'HelloWorld.java', 'Notepad.java',
                'SampleData.java', 'SampleTree.java', 'SampleTreeCellRenderer.java', 'SampleTreeModel.java', 'Stylepad.java', 'Wonderland.java']
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
                    'SampleData.java':'C7', 'SampleTree.java':'C8', 'SampleTreeCellRenderer.java':'C9', 'SampleTreeModel.java':'C10', 'Stylepad.java':'C11', 'Wonderland.java':'C12'}
 
-    # tabela_std(cenarios, class_codes, classes, df_geral, modelos)
+    tabela_std(cenarios, class_codes, classes, df_geral, modelos)
     # tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
     # mannwhitneyu_cross_cenarios(df_geral)
 
@@ -119,6 +130,10 @@ def main():
     # matriz_correlacao_geral(df_filtrado)
     # plotar_scatter(df_filtrado, 'Gemini15pro', 'comment_lines_density')
     # plotar_histogramas(df_geral)
+
+def loadScalabrino(file_path):
+    df = pd.read_csv(file_path, header=None, skiprows=1)
+    return df
 
 def mannwhitneyu_cross_cenarios(df_geral):
     modelos = ['GPT4o', 'GPT4o_mini', 'Gemini15pro', 'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude3_haiku']

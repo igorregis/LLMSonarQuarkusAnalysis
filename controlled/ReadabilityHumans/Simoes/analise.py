@@ -16,7 +16,7 @@ def loadScalabrino(file_path):
 def load_json_data(file_path, column):
   data = []
   name_prefix = ''
-  if '1' in file_path:
+  if '-1.json' in file_path:
       name_prefix = 'Quarkus/'
   else:
       name_prefix = 'SPD/'
@@ -52,6 +52,7 @@ def loadAndMerge(scenario, llm, df_param):
 def load(scenario, llm):
     all_files = os.listdir()
     files = [file for file in all_files if file.startswith(scenario+llm)]
+    files.sort()
     counter = 1
     temp = pd.DataFrame()
     for file in files:
@@ -107,9 +108,16 @@ def plot_violins(df, llm):
     plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels for better readability
     plt.savefig(f'graficos/violinos_{llm}.png', dpi=300)
 
-def analyze_scores(df, column_one, column_two):
-    W_stat, p_value = wilcoxon(df[column_one], df[column_two])
-    return W_stat, p_value
+def teste_wilcoxon(df):
+    df = df.copy().dropna()
+    colunas = len(df.columns)
+    for i in range(colunas):
+        for j in range(i + 1, colunas):
+            coluna1 = df.iloc[:,i]
+            coluna2 = df.iloc[:,j]
+            estatistica, valor_p = wilcoxon(coluna1.values, coluna2.values)
+            print(f'Wilcoxon de {df.columns[i]} com {df.columns[j]} - estatistica:{estatistica}, valor_p:, {valor_p}')
+            # print('\nColunas:', coluna1.values, '\n', coluna2.values)
 
 def plot_pairplot(df, column_one, column_two):
     sns.pairplot(df[[column_one, column_two]], hue=column_one)
@@ -347,7 +355,7 @@ def calcular_correlacao_spearman(df, llms, scenario):
             print(f'{scenario}: {nome_llm1} com {nome_llm2}', correlacao)
 
 df_llm = {}
-llms = ['LLM4o', 'LLM35', 'Gemini20flash']
+llms = ['LLM4o', 'LLM35', 'Gemini20flash', 'Gemini15flash']
 for llm in llms:
     df_llm[llm] = load('sonarAnd', llm)
     df_llm[llm] = pd.DataFrame(df_llm[llm][llm+'-1'].fillna(df_llm[llm][llm+'-2']))
@@ -373,8 +381,8 @@ df_scalabrino['Scalabrino Scaled Score'] = df_scalabrino['Scalabrino Score']*100
 print('Scalabrino\n', df_scalabrino)
 
 df_analise_all = df_scalabrino.drop(columns=['Scalabrino Score']).join(df_llm[llms[0]])
-df_analise_all = df_analise_all.join(df_llm[llms[1]])
-df_analise_all = df_analise_all.join(df_llm[llms[2]])
+for i in range(1, len(llms)):
+    df_analise_all = df_analise_all.join(df_llm[llms[i]])
 print('df_analise_all\n',df_analise_all)
 
 
@@ -398,11 +406,12 @@ for llm_name in llms:
     llm_value = df_analise_quarkus[llm_name].corr(df_analise_quarkus['Scalabrino Scaled Score'], method='spearman')
     print(f'Quarkus: Scalabrino com {llm_name} ',llm_value)
 calcular_correlacao_spearman(df_analise_quarkus, llms, 'Quarkus')
+teste_wilcoxon(df_analise_quarkus)
 print('\n\n')
 for llm_name in llms:
     llm_value = df_analise_spd[llm_name].corr(df_analise_spd['Scalabrino Scaled Score'], method='spearman')
     print(f'SPD: Scalabrino com {llm_name} ',llm_value)
 calcular_correlacao_spearman(df_analise_spd, llms, 'SPD')
-
+teste_wilcoxon(df_analise_spd)
 plot_boxplots_comparativo(df_analise_quarkus, df_analise_spd, 'Quarkus', 'SPD')
 plot_violinplots_comparativo(df_analise_quarkus, df_analise_spd, 'Quarkus', 'SPD')

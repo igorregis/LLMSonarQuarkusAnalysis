@@ -157,7 +157,7 @@ def create_correlation_plot(df_annotations, df_ground_truth, dorn_metric_value, 
     df_annotations.columns = df_annotations.columns.astype(str).str.replace(r'\.0$', '', regex=True)
     df_annotations = df_annotations.rename_axis(None, axis=1).rename_axis('human_id', axis=0)
     correlations = []
-    cores_nomeadas = ['red', 'orange', '#FFA500', '#9400D3']
+    cores_nomeadas = ['red', 'orange', 'green', '#FFA500', '#9400D3']
     print('df_annotations=',df_annotations.shape[0], df_annotations.shape[1], '\n', df_annotations)
     print('df_ground_truth=',df_ground_truth.shape[0], df_ground_truth.shape[1], '\n', df_ground_truth)
     skipped = 0
@@ -225,7 +225,7 @@ df_graduate = df_graduate.drop(columns=['student_id', 'course_code'])
 print(df_human)
 
 df_llm = {}
-llms = ['Gemini15flash', 'Gemini20flash']
+llms = ['Gemini15flash', 'Gemini20flash', 'Gemini15pro']
 for llm in llms:
     df_llm[llm] = load('controlledBuseAndWeimer', llm)
 print(df_llm)

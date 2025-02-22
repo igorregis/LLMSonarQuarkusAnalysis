@@ -105,9 +105,9 @@ def main():
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
                    'SampleData.java':'C7', 'SampleTree.java':'C8', 'SampleTreeCellRenderer.java':'C9', 'SampleTreeModel.java':'C10', 'Stylepad.java':'C11', 'Wonderland.java':'C12'}
 
-    # tabela_std(cenarios, class_codes, classes, df_geral, modelos)
+    tabela_std(cenarios, class_codes, classes, df_geral, modelos)
     # tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
-    mannwhitneyu_cross_cenarios(df_geral)
+    # mannwhitneyu_cross_cenarios(df_geral)
 
     # calcular_variancia_df(df_filtrado)
     # matriz_correlacao_geral(df_filtrado)
