@@ -30,7 +30,19 @@ def main():
         print(f"\nEstatisticas para {nome_amigavel}\n")
         calcular_estatisticas(dfs[nome_amigavel])
 
-    print(dfs['original']['score'])
+    print(dfs['original'])
+
+    dfs['clean_code']['diferenca'] = ((dfs['clean_code']['score'] - dfs['original']['score']) / dfs['original']['score']) * 100
+    dfs['clean_code']['alias'] = [1,3,4,5,2,6,7,9,8,10,11,12]
+    print(f'diferenca_percentual clean_code:\n{dfs['clean_code'].sort_values(by='alias', ascending=True)}')
+
+    dfs['bad_names']['diferenca'] = ((dfs['bad_names']['score'] - dfs['original']['score']) / dfs['original']['score']) * 100
+    dfs['bad_names']['alias'] = [1, 3, 4, 5, 2, 6, 7, 9, 8, 10, 11, 12]
+    print(f'diferenca_percentual bad_names:\n{dfs['bad_names'].sort_values(by='alias', ascending=True)}')
+
+    dfs['no_comments']['diferenca'] = ((dfs['no_comments']['score'] - dfs['original']['score']) / dfs['original']['score']) * 100
+    dfs['no_comments']['alias'] = [1, 3, 4, 5, 2, 6, 7, 9, 8, 10, 11, 12]
+    print(f'diferenca_percentual no_comments:\n{dfs['no_comments'].sort_values(by='alias', ascending=True)}')
 
     # Gerar o gráfico de boxplot
     fig, ax = plt.subplots()

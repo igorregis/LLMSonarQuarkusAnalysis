@@ -12,6 +12,7 @@ import os
 from scipy.stats import wilcoxon
 from scipy.stats import mannwhitneyu
 from sklearn.cluster import KMeans
+import pingouin as pg
 
 from Shatteredpixeldungeon.analiseSPD35T import print_occurrence_table
 
@@ -22,20 +23,20 @@ def main():
     # Defina as listas de dados e seus respectivos diretórios
     data_lists = {
         'clean_code': 'CleanCode',
-        'bad_names_no_comments': 'BadNamesNoComments',
+        # 'bad_names_no_comments': 'BadNamesNoComments',
         'bad_names': 'BadNames',
         'no_comments': 'NoComments',
         'original': 'Original'
     }
     llm_lists = {
-        # 'GPT4o': 'GPT4o',
-        # 'Claude35_sonnet': 'Claude35-sonnet',
+        'GPT4o': 'GPT4o',
+        'Claude35_sonnet': 'Claude35-sonnet',
         'Gemini15pro': 'Gemini15pro',
-        # 'Llama31_405b': 'Llama31-405b',
-        # 'GPT4o_mini': 'GPT4o-mini',
-        # 'Claude3_haiku': 'Claude3-haiku',
+        'Llama31_405b': 'Llama31-405b',
+        'GPT4o_mini': 'GPT4o-mini',
+        'Claude35_haiku': 'Claude35-haiku',
         'Gemini15flash': 'Gemini15flash',
-        'Gemini20flash': 'Gemini20flash',
+        # 'Gemini20flash': 'Gemini20flash',
         'Llama31_8b': 'Llama31-8b'
     }
 
@@ -47,7 +48,7 @@ def main():
             # Inicialize a lista de dados
             data_lists[llm_list + '-' + data_list] = []
             # Carregue os dados de 10 arquivos no diretório
-            for i in range(1, 58):
+            for i in range(1, 11):
                 file_name = f'{llm}/{directory[0] + directory[1:]}/controlled{directory}{llm}-{i}.json'
                 # Carregue os dados do arquivo
                 loadData(data_lists[llm_list + '-' + data_list], file_name)
@@ -62,68 +63,75 @@ def main():
                                                                                                                'lines',
                                                                                                                'sqale_rating',
                                                                                                                'statements'])
-
+            # if data_list == 'no_comments' and llm_list == 'Gemini15flash':
+            #     print(f'{data_list}-{llm_list}---------------------------------\n',data_lists[llm_list + '-' + data_list])
+            #     temp = data_lists[llm_list + '-' + data_list].copy()
+            #     temp.sort(key=lambda x: x[0])
+            #     for item in temp:
+            #         print(item[0], item[1])
             if data_list == 'clean_code':
                 clean_code = data_list
                 print(f'\nEstatisticas para {llm_list + "-" + data_list}\n')
                 calcular_estatisticas(df[llm_list + '-' + data_list])
-                calcular_variacao(df[llm_list + '-' + data_list])
+                # calcular_variacao(df[llm_list + '-' + data_list])
 
             if data_list == 'original':
                 original = data_list
                 print(f'\nEstatisticas para {llm_list + "-" + data_list}\n')
                 calcular_estatisticas(df[llm_list + '-' + data_list])
-                calcular_variacao(df[llm_list + '-' + data_list])
+                # calcular_variacao(df[llm_list + '-' + data_list])
 
             if data_list == 'bad_names':
                 bad_names = data_list
                 print(f'\nEstatisticas para {llm_list + "-" + data_list}\n')
                 calcular_estatisticas(df[llm_list + '-' + data_list])
-                calcular_variacao(df[llm_list + '-' + data_list])
+                # calcular_variacao(df[llm_list + '-' + data_list])
 
             if data_list == 'no_comments':
                 no_comments = data_list
                 print(f'\nEstatisticas para {llm_list + "-" + data_list}\n')
                 calcular_estatisticas(df[llm_list + '-' + data_list])
-                calcular_variacao(df[llm_list + '-' + data_list])
+                # calcular_variacao(df[llm_list + '-' + data_list])
 
-            if data_list == 'bad_names_no_comments':
-                bad_names_no_comments = data_list
-                print(f'\nEstatisticas para {llm_list + "-" + data_list}\n')
-                calcular_estatisticas(df[llm_list + '-' + data_list])
-                calcular_variacao(df[llm_list + '-' + data_list])
+            # if data_list == 'bad_names_no_comments':
+            #     bad_names_no_comments = data_list
+            #     print(f'\nEstatisticas para {llm_list + "-" + data_list}\n')
+            #     calcular_estatisticas(df[llm_list + '-' + data_list])
+            #     calcular_variacao(df[llm_list + '-' + data_list])
 
     for data in data_lists_copy.keys():
         gerar_boxplot(data_lists, llm_lists, data)
 
     gerar_boxplot_sobreposto(data_lists, llm_lists, original, no_comments)
     gerar_boxplot_sobreposto(data_lists, llm_lists, original, bad_names)
-    gerar_boxplot_sobreposto(data_lists, llm_lists, original, bad_names_no_comments)
+    # gerar_boxplot_sobreposto(data_lists, llm_lists, original, bad_names_no_comments)
     gerar_boxplot_sobreposto(data_lists, llm_lists, original, clean_code)
 
-    # df_quarkus = loadScalabrino('ReadabilityClassifier/Original.csv')
-    # df_quarkus.columns = ['name', 'Scalabrino Score q']
-    # df_quarkus = df_quarkus.set_index('name')
+    classifier_data = load_classifier_data()
+    print(f'classifier_data\n{classifier_data}')
 
     # teste_geral_mannwhitneyu(data_lists)
-    # print(data_lists)
+    # print(df)
 
     df_geral = criar_data_frame_geral(data_lists)
-    print('data_list--------------------------------------\n', data_lists)
-    print('df_geral------------------------------------\n', df_geral)
+    # print('data_list--------------------------------------\n', data_lists)
+    # print('df_geral------------------------------------\n', df_geral.to_string())
 
     # matriz_correlacao_geral(df_geral)
     # print(df_geral.to_string())
-    # modelos = ['GPT4o', 'GPT4o_mini', 'Gemini15pro', 'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude3_haiku']
-    modelos = ['Gemini15pro', 'Gemini15flash', 'Gemini20flash', 'Llama31_8b']
-    cenarios = ['original', 'bad_names', 'bad_names_no_comments', 'clean_code', 'no_comments']
+    modelos = ['GPT4o', 'GPT4o_mini', 'Gemini15pro', 'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude35_haiku']
+    cenarios = ['original', 'bad_names',
+                # 'bad_names_no_comments',
+                'clean_code', 'no_comments']
     classes = ['DoubleSummaryStatistics.java', 'Month.java', 'DynamicTreeNode.java', 'ElementTreePanel.java', 'HelloWorld.java', 'Notepad.java',
                'SampleData.java', 'SampleTree.java', 'SampleTreeCellRenderer.java', 'SampleTreeModel.java', 'Stylepad.java', 'Wonderland.java']
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
                    'SampleData.java':'C7', 'SampleTree.java':'C8', 'SampleTreeCellRenderer.java':'C9', 'SampleTreeModel.java':'C10', 'Stylepad.java':'C11', 'Wonderland.java':'C12'}
 
-    tabela_std(cenarios, class_codes, classes, df_geral, modelos)
-    # tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
+    # correlation_sco_llms(cenarios, class_codes, classifier_data, df_geral, llm_lists)
+
+    # tabela_std(cenarios, class_codes, classes, df_geral, modelos)
+    tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
     # mannwhitneyu_cross_cenarios(df_geral)
 
     # calcular_variancia_df(df_filtrado)
@@ -131,14 +139,94 @@ def main():
     # plotar_scatter(df_filtrado, 'Gemini15pro', 'comment_lines_density')
     # plotar_histogramas(df_geral)
 
+
+def correlation_sco_llms(cenarios, class_codes, classifier_data, df_geral, llm_lists):
+    # Prepare data for corr analysis
+    df_cenarios = {}
+    for cenario in cenarios:
+        for classe, alias in class_codes.items():
+            for llm, llm_list in llm_lists.items():
+                classifier_data.loc[f'{cenario}-{classe}', llm] = \
+                df_geral[df_geral.index.str.endswith(f'{cenario}-{classe}')][llm].mean()
+        df_cenarios[cenario] = classifier_data[classifier_data.index.str.startswith(cenario)]
+        print(df_cenarios[cenario].to_string())
+
+        for llm, llm_list in llm_lists.items():
+            correlacao = df_cenarios[cenario]['sco'].corr(df_cenarios[cenario][llm], method='spearman')
+            print(f'{cenario}: SCO com {llm}', correlacao)
+        teste_wilcoxon(df_cenarios[cenario])
+    print(classifier_data.to_string())
+
+def calcular_cliff_delta(coluna1, coluna2):
+    return pg.compute_effsize(coluna1, coluna2, eftype='cles')
+
+def calcular_r_wilcoxon(estatistica, n):
+    z = (estatistica - (n * (n + 1) / 4)) / ((n * (n + 1) * (2 * n + 1) / 24) ** 0.5)
+    r = z / (n ** 0.5)
+    return r
+
+def teste_wilcoxon(df):
+    df = df.copy().dropna()
+    colunas = len(df.columns)
+    for i in range(colunas):
+        for j in range(i + 1, colunas):
+            coluna1 = df.iloc[:,i]
+            coluna2 = df.iloc[:,j]
+            estatistica, valor_p = wilcoxon(coluna1.values, coluna2.values)
+            n = len(coluna1)  # Tamanho da amostra
+            cliff_delta = calcular_cliff_delta(coluna1, coluna2)
+            r_wilcoxon = calcular_r_wilcoxon(estatistica, n)
+            print(
+                f'Wilcoxon de {df.columns[i]} com {df.columns[j]} - estatistica:{estatistica}, valor_p:, {valor_p}, Cliff\'s Delta: {cliff_delta}, r: {r_wilcoxon}')
+
+def load_classifier_data():
+    original = loadScalabrino('ReadabilityClassifier/Original.csv')
+    original.columns = ['name', 'sco']
+    # original = original.set_index('name')
+    print(f'original\n{original}')
+
+    noComments = loadScalabrino('ReadabilityClassifier/NoComments.csv')
+    noComments.columns = ['name', 'sco']
+    # noComments = noComments.set_index('name')
+    print(f'noComments\n{noComments}')
+
+    badNames = loadScalabrino('ReadabilityClassifier/BadNames.csv')
+    badNames.columns = ['name', 'sco']
+    # badNames = badNames.set_index('name')
+    print(f'badNames\n{badNames}')
+
+    cleanCode = loadScalabrino('ReadabilityClassifier/CleanCode.csv')
+    cleanCode.columns = ['name', 'sco']
+    # cleanCode = cleanCode.set_index('name')
+    print(f'cleanCode\n{cleanCode}')
+
+    original['name'] = 'original-' + original['name']
+    original['sco'] = original['sco'] * 100
+    noComments['name'] = 'no_comments-' + noComments['name']
+    noComments['sco'] = noComments['sco'] * 100
+    badNames['name'] = 'bad_names-' + badNames['name']
+    badNames['sco'] = badNames['sco'] * 100
+    cleanCode['name'] = 'clean_code-' + cleanCode['name']
+    cleanCode['sco'] = cleanCode['sco'] * 100
+    df_final = pd.concat([original, noComments, badNames, cleanCode], ignore_index=True)
+    df_final = df_final.set_index('name')
+
+    return df_final
+
 def loadScalabrino(file_path):
-    df = pd.read_csv(file_path, header=None, skiprows=1)
+    df = pd.read_csv(file_path, header=None)
     return df
 
 def mannwhitneyu_cross_cenarios(df_geral):
-    modelos = ['GPT4o', 'GPT4o_mini', 'Gemini15pro', 'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude3_haiku']
-    modelos = ['Gemini15flash', 'Llama31_8b']
-    cenarios = ['original', 'bad_names', 'original', 'bad_names_no_comments', 'original', 'clean_code', 'original', 'no_comments']
+    modelos = ['GPT4o', 'GPT4o_mini',
+               'Gemini15pro',
+               'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude35_haiku']
+    # modelos = ['Gemini15flash', 'Llama31_8b']
+    cenarios = [
+                'original', 'bad_names',
+                # 'original', 'bad_names_no_comments',
+                'original', 'clean_code',
+                'original', 'no_comments']
     classes = ['DoubleSummaryStatistics.java', 'Month.java', 'DynamicTreeNode.java', 'ElementTreePanel.java', 'HelloWorld.java', 'Notepad.java',
                'SampleData.java', 'SampleTree.java', 'SampleTreeCellRenderer.java', 'SampleTreeModel.java', 'Stylepad.java', 'Wonderland.java']
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
@@ -151,15 +239,14 @@ def mannwhitneyu_cross_cenarios(df_geral):
                 cenario1 = cenarios[i]
                 cenario2 = cenarios[i+1]
                 grupo1 = cenario1 +"-"+ class_codes[classe] +"-"+ modelo
-                valores_grupo1 = df_geral[df_geral.index.str.contains(cenario1 + '-' + classe)][modelo].values
+                valores_grupo1 = df_geral[df_geral.index.str.contains(cenario1 + '-' + classe)][modelo].values.astype(int)
                 grupo2 = cenario2 +"-"+ class_codes[classe] +"-"+ modelo
-                valores_grupo2 = df_geral[df_geral.index.str.contains(cenario2 + '-' + classe)][modelo].values
+                valores_grupo2 = df_geral[df_geral.index.str.contains(cenario2 + '-' + classe)][modelo].values.astype(int)
                 print(f'{cenario1}-{classe}-{modelo} : {valores_grupo1}')
                 print(f'{cenario2}-{classe}-{modelo} : {valores_grupo2}')
                 n1 = len(valores_grupo1)
                 n2 = len(valores_grupo2)
                 n_total = n1 + n2
-
                 try:
                     stat, p_value = mannwhitneyu(valores_grupo1, valores_grupo2)
                 except ValueError as e:
@@ -186,7 +273,7 @@ def mannwhitneyu_cross_cenarios(df_geral):
         p_value = item['p_value']
         z = norm.ppf(1 - item['p_value'] / 2)
         item['r'] = z / np.sqrt(item['n_total'])
-        if cenarios[7] in item['grupo2'] and modelos[0] in item['grupo2']:
+        if cenarios[3] in item['grupo2'] and modelos[7] in item['grupo2']:
             if p_value < (alpha / 10):
                 mensagem_significancia = "Diferença SIGNIFICATIVA"
             elif p_value < alpha:
@@ -245,27 +332,39 @@ def calcular_mediana_diferenca_bootstrap(grupo1, grupo2, num_bootstraps=10000, n
 def tabela_mean(cenarios, class_codes, classes, df_geral, modelos):
     for cenario in cenarios:
         print()
-        print(cenario)
+        print(f'Scores de {cenario}')
         print('\t', '\t'.join(modelos), end='')
         for classe in classes:
             print()
             print(f'{class_codes[classe]}\t', end='')
             for modelo in modelos:
                 df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
-                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean():.1f}\t', end='')
-
+                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean():.1f}\t\t', end='')
+    for cenario in cenarios:
+        if cenario != 'original':
+            print()
+            print(f'Scores de {cenario}')
+            print('\t', '\t\t'.join(modelos), end='')
+            for classe in classes:
+                print()
+                print(f'{class_codes[classe]}\t', end='')
+                for modelo in modelos:
+                    df_original = df_geral[df_geral.index.str.contains('original' + '-' + classe)]
+                    df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
+                    value = -100 * (1 - (df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean())/(df_original.loc[df_original[modelo] != 0, modelo].mean()))
+                    print(f'{value:.1f}{"\t\t\t\t" if value >= 10 else "\t\t\t"}', end='')
 
 def tabela_std(cenarios, class_codes, classes, df_geral, modelos):
     for cenario in cenarios:
         print()
-        print(cenario)
+        print(f'Desvio padrão de {cenario}')
         print('\t', '\t'.join(modelos), end='')
         for classe in classes:
             print()
             print(f'{class_codes[classe]}\t', end='')
             for modelo in modelos:
                 df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
-                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].std():.1f}\t', end='')
+                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].std():.1f}\t\t\t', end='')
 
 
 def calcular_variancia_df(df):
@@ -617,7 +716,7 @@ def gerar_boxplot(data_lists, llm_lists, data_list_name):
     # Realizar o teste de Shapiro-Wilk
     # realizar_teste_shapiro(scores)
     # realizar_teste_levene(scores)
-    realizar_teste_mannwhitneyu(scores)
+    # realizar_teste_mannwhitneyu(scores)
 
     # Gerar o gráfico de boxplot
     fig, ax = plt.subplots()
@@ -633,8 +732,8 @@ import matplotlib.pyplot as plt
 
 def gerar_boxplot_sobreposto(data_lists, llm_lists, data_list_name, data_list_name2):
     label_lists = {
-        'clean_code': 'I4',
-        'bad_names_no_comments': 'I3',
+        'clean_code': 'I3',
+        # 'bad_names_no_comments': 'I3',
         'bad_names': 'I2',
         'no_comments': 'I1',
         'original': 'OC'

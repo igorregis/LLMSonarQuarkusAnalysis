@@ -105,8 +105,8 @@ def main():
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
                    'SampleData.java':'C7', 'SampleTree.java':'C8', 'SampleTreeCellRenderer.java':'C9', 'SampleTreeModel.java':'C10', 'Stylepad.java':'C11', 'Wonderland.java':'C12'}
 
-    tabela_std(cenarios, class_codes, classes, df_geral, modelos)
-    # tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
+    # tabela_std(cenarios, class_codes, classes, df_geral, modelos)
+    tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
     # mannwhitneyu_cross_cenarios(df_geral)
 
     # calcular_variancia_df(df_filtrado)
@@ -164,7 +164,7 @@ def mannwhitneyu_cross_cenarios(df_geral):
         p_value = item['p_value']
         z = norm.ppf(1 - item['p_value'] / 2)
         item['r'] = z / np.sqrt(item['n_total'])
-        if cenarios[5] in item['grupo2'] and modelos[7] in item['grupo2']:
+        if cenarios[3] in item['grupo2'] and modelos[0] in item['grupo2']:
             if p_value < (alpha / 10):
                 mensagem_significancia = "Diferença SIGNIFICATIVA"
             elif p_value < alpha:
@@ -231,6 +231,19 @@ def tabela_mean(cenarios, class_codes, classes, df_geral, modelos):
             for modelo in modelos:
                 df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
                 print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean():.1f}\t', end='')
+    for cenario in cenarios:
+        if cenario != 'original':
+            print()
+            print(cenario)
+            print('\t', '\t'.join(modelos), end='')
+            for classe in classes:
+                print()
+                print(f'{class_codes[classe]}\t', end='')
+                for modelo in modelos:
+                    df_original = df_geral[df_geral.index.str.contains('original' + '-' + classe)]
+                    df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
+                    value = -100 * (1 - (df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean())/(df_original.loc[df_original[modelo] != 0, modelo].mean()))
+                    print(f'{value:.1f}\t', end='')
 
 
 def tabela_std(cenarios, class_codes, classes, df_geral, modelos):
