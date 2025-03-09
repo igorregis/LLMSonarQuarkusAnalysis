@@ -1,6 +1,14 @@
+from scipy.spatial.distance import squareform, pdist
+import numpy as np
+from scipy.stats import pearsonr
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import wilcoxon
+import json
 import pandas as pd
 import os
-
+from scipy.stats import spearmanr
+from itertools import combinations
 from numpy.ma.extras import column_stack
 
 
@@ -33,9 +41,6 @@ def dividir_dataframe_por_pergunta(df, pergunta, resposta):
 
 def load_and_clean_data():
     dados = carregar_dados_csv('Humans/raw-data.csv', 'ISO-8859-1')
-    if dados is not None:
-        print(f"Dados carregados com sucesso!")
-        print(dados)  # Exibe as primeiras linhas do DataFrame
     df_demografia, df_respostas = dividir_dataframe(dados)
     df_demografia['Qual opção melhor descreve seu cargo atual?'] = df_demografia['Qual opção melhor descreve seu cargo atual?'].replace('Senior ou equivalente', 'Senior')
     df_demografia['Qual opção melhor descreve seu cargo atual?'] = df_demografia['Qual opção melhor descreve seu cargo atual?'].replace('Pleno ou equivalente', 'Mid')
@@ -73,12 +78,487 @@ def load_and_clean_data():
     novas_colunas = {'Qual seu cargo?': 'role', 'Qual das linguagens abaixo você considera que conhece melhor?1': 'language', 'Há quanto tempo você programa?1': 'experience', 'Em que ano você entrou no BB?':'job time'}
     df_bb = df_bb.rename(columns=novas_colunas)
 
-    return df_respostas, df_mercado, df_bb, df_terceiro
+    df_respostas.columns.values[1] = 'Original-MonthPlus.java-score'
+    df_respostas.columns.values[2] = 'Original-MonthPlus.java-reasoning'
+    df_respostas.columns.values[3] = 'BadNames-Combine.java-score'
+    df_respostas.columns.values[4] = 'BadNames-Combine.java-reasoning'
+    df_respostas.columns.values[5] = 'NoComments-MonthSubtrai.java-score'
+    df_respostas.columns.values[6] = 'NoComments-MonthSubtrai.java-reasoning'
+    df_respostas.columns.values[7] = 'Original-MonthPrimeiroMesDoTrimestre.java-score'
+    df_respostas.columns.values[8] = 'Original-MonthPrimeiroMesDoTrimestre.java-reasoning'
+    df_respostas.columns.values[9] = 'BadNames-GetMedia.java-score'
+    df_respostas.columns.values[10] = 'BadNames-GetMedia.java-reasoning'
+    df_respostas.columns.values[11] = 'NoComments-CarregarFilhos.java-score'
+    df_respostas.columns.values[12] = 'NoComments-CarregarFilhos.java-reasoning'
+    df_respostas.columns.values[13] = 'Original-CalculaDVBase10.java-score'
+    df_respostas.columns.values[14] = 'Original-CalculaDVBase10.java-reasoning'
+    df_respostas.columns.values[15] = 'BadNames-CalculaAreaCirculo.java-score'
+    df_respostas.columns.values[16] = 'BadNames-CalculaAreaCirculo.java-reasoning'
+    df_respostas.columns.values[17] = 'NoComments-CalculaAreaTrianguloIsoceles.java-score'
+    df_respostas.columns.values[18] = 'NoComments-CalculaAreaTrianguloIsoceles.java-reasoning'
+    df_respostas.columns.values[19] = 'Original-AnoBissexto.java-score'
+    df_respostas.columns.values[20] = 'Original-AnoBissexto.java-reasoning'
+    df_respostas.columns.values[21] = 'NoComments-MonthPlus.java-score'
+    df_respostas.columns.values[22] = 'NoComments-MonthPlus.java-reasoning'
+    df_respostas.columns.values[23] = 'Original-Combine.java-score'
+    df_respostas.columns.values[24] = 'Original-Combine.java-reasoning'
+    df_respostas.columns.values[25] = 'BadNames-MonthSubtrai.java-score'
+    df_respostas.columns.values[26] = 'BadNames-MonthSubtrai.java-reasoning'
+    df_respostas.columns.values[27] = 'NoComments-MonthPrimeiroMesDoTrimestre.java-score'
+    df_respostas.columns.values[28] = 'NoComments-MonthPrimeiroMesDoTrimestre.java-reasoning'
+    df_respostas.columns.values[29] = 'Original-GetMedia.java-score'
+    df_respostas.columns.values[30] = 'Original-GetMedia.java-reasoning'
+    df_respostas.columns.values[31] = 'BadNames-CarregarFilhos.java-score'
+    df_respostas.columns.values[32] = 'BadNames-CarregarFilhos.java-reasoning'
+    df_respostas.columns.values[33] = 'NoComments-CalculaDVBase10.java-score'
+    df_respostas.columns.values[34] = 'NoComments-CalculaDVBase10.java-reasoning'
+    df_respostas.columns.values[35] = 'Original-CalculaAreaCirculo.java-score'
+    df_respostas.columns.values[36] = 'Original-CalculaAreaCirculo.java-reasoning'
+    df_respostas.columns.values[37] = 'BadNames-CalculaAreaTrianguloIsoceles.java-score'
+    df_respostas.columns.values[38] = 'BadNames-CalculaAreaTrianguloIsoceles.java-reasoning'
+    df_respostas.columns.values[39] = 'NoComments-AnoBissexto.java-score'
+    df_respostas.columns.values[40] = 'NoComments-AnoBissexto.java-reasoning'
+    df_respostas.columns.values[41] = 'BadNames-MonthPlus.java-score'
+    df_respostas.columns.values[42] = 'BadNames-MonthPlus.java-reasoning'
+    df_respostas.columns.values[43] = 'NoComments-Combine.java-score'
+    df_respostas.columns.values[44] = 'NoComments-Combine.java-reasoning'
+    df_respostas.columns.values[45] = 'Original-MonthSubtrai.java-score'
+    df_respostas.columns.values[46] = 'Original-MonthSubtrai.java-reasoning'
+    df_respostas.columns.values[47] = 'BadNames-MonthPrimeiroMesDoTrimestre.java-score'
+    df_respostas.columns.values[48] = 'BadNames-MonthPrimeiroMesDoTrimestre.java-reasoning'
+    df_respostas.columns.values[49] = 'NoComments-GetMedia.java-score'
+    df_respostas.columns.values[50] = 'NoComments-GetMedia.java-reasoning'
+    df_respostas.columns.values[51] = 'Original-CarregarFilhos.java-score'
+    df_respostas.columns.values[52] = 'Original-CarregarFilhos.java-reasoning'
+    df_respostas.columns.values[53] = 'BadNames-CalculaDVBase10.java-score'
+    df_respostas.columns.values[54] = 'BadNames-CalculaDVBase10.java-reasoning'
+    df_respostas.columns.values[55] = 'NoComments-CalculaAreaCirculo.java-score'
+    df_respostas.columns.values[56] = 'NoComments-CalculaAreaCirculo.java-reasoning'
+    df_respostas.columns.values[57] = 'Original-CalculaAreaTrianguloIsoceles.java-score'
+    df_respostas.columns.values[58] = 'Original-CalculaAreaTrianguloIsoceles.java-reasoning'
+    df_respostas.columns.values[59] = 'BadNames-AnoBissexto.java-score'
+    df_respostas.columns.values[60] = 'BadNames-AnoBissexto.java-reasoning'
+    df_respostas.columns.values[61] = 'Comments'
+
+    df_notas = df_respostas.filter(like='score').copy()
+    df_notas['Id'] = df_respostas['Id'].values
+    ultima_coluna = df_notas.columns[-1]
+    df_notas = df_notas[[ultima_coluna] + df_notas.columns[:-1].tolist()]
+
+    return df_notas, df_respostas, df_mercado, df_bb, df_terceiro
+
+def split_random_groups(df):
+    df1 = df[df['Original-MonthPlus.java-score'].notna()]
+    df2 = df[df['BadNames-MonthPlus.java-score'].notna()]
+    df3 = df[df['NoComments-MonthPlus.java-score'].notna()]
+
+    df1 = df1.dropna(axis=1, how='all')
+    df2 = df2.dropna(axis=1, how='all')
+    df3 = df3.dropna(axis=1, how='all')
+
+    return df1, df2, df3
+
+def load(scenario, llm):
+    all_files = os.listdir(f'./{llm}/{scenario}')
+    files = [file for file in all_files if file.startswith('llmvshuman'+scenario+llm)]
+    files.sort()
+    counter = 1
+    temp = pd.DataFrame()
+    for file in files:
+        loaded_df = load_json_data(f'./{llm}/{scenario}/{file}', f'{llm}-{counter}')
+        loaded_df.index = scenario + '-' +  loaded_df.index + '-score'
+        if temp.empty:
+            temp = loaded_df.copy()
+        else:
+            # temp = pd.concat([temp, loaded_df])
+            temp = loaded_df.join(temp)
+        counter = counter+1
+    return temp
+
+def load_json_data(file_path, column):
+    data = []
+    with open(file_path, 'r') as f:
+        for line in f:
+            try:
+                json_obj = json.loads(line)
+                data.append({'name': json_obj.get('name'), column: json_obj.get('score')})
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON line: {e}")
+    df = pd.DataFrame(data).set_index('name').sort_values(by='name')
+    df[column] = df[column].astype(int)
+    return df.copy()
+
+def calcular_correlacoes_spearman(medias, coluna_x):
+    correlacoes = {}
+    chaves = list(medias.keys())
+
+    # Itera sobre todas as combinações de pares de DataFrames
+    for chave1, chave2 in combinations(chaves, 2):
+        # Verifica se as chaves compartilham os últimos 9 caracteres
+        if chave1[-8:] == chave2[-8:]:
+            df1 = medias[chave1]
+            df2 = medias[chave2]
+
+            # Verifica se a coluna existe em ambos os DataFrames
+            if coluna_x in df1.columns and coluna_x in df2.columns:
+                # Calcula a correlação de Spearman e o p-valor
+                # print(f'Correlação entre {chave1} e {chave2}:\n{df1[coluna_x]}\n{df2[coluna_x]}')
+                correlacao, p_valor = spearmanr(df1[coluna_x], df2[coluna_x], nan_policy='omit')
+                # print('correlacao:', correlacao, 'p_valor:', p_valor)
+                correlacoes[(chave1, chave2)] = {'correlacao': correlacao, 'p_valor': p_valor}
+            else:
+                correlacoes[(chave1, chave2)] = {'correlacao': None, 'p_valor': None, 'erro': f"Coluna '{coluna_x}' não encontrada em um dos DataFrames."}
+
+    return correlacoes
+
+def calcular_teste_wilcoxon(medias, coluna_x):
+    resultados_wilcoxon = {}
+    chaves = list(medias.keys())
+
+    # Itera sobre todas as combinações de pares de DataFrames
+    for chave1, chave2 in combinations(chaves, 2):
+        # Verifica se as chaves compartilham os últimos 9 caracteres
+        if chave1[-8:] == chave2[-8:]:
+            df1 = medias[chave1]
+            df2 = medias[chave2]
+
+            # Verifica se a coluna existe em ambos os DataFrames
+            if coluna_x in df1.columns and coluna_x in df2.columns:
+                # Remove valores NaN para o teste de Wilcoxon
+                valores1 = df1[coluna_x].dropna()
+                valores2 = df2[coluna_x].dropna()
+
+                # Garante que há dados suficientes para realizar o teste
+                if len(valores1) > 0 and len(valores2) > 0:
+                    # Calcula o teste de Wilcoxon
+                    estatistica, p_valor = wilcoxon(valores1, valores2)
+                    resultados_wilcoxon[(chave1, chave2)] = {'estatistica': estatistica, 'p_valor': p_valor}
+                else:
+                    resultados_wilcoxon[(chave1, chave2)] = {'estatistica': None, 'p_valor': None, 'erro': "Dados insuficientes para realizar o teste."}
+            else:
+                resultados_wilcoxon[(chave1, chave2)] = {'estatistica': None, 'p_valor': None, 'erro': f"Coluna '{coluna_x}' não encontrada em um dos DataFrames."}
+
+    return resultados_wilcoxon
+
+def criar_heatmap_correlacoes(scenario, correlacoes):
+    # Extrai os nomes únicos dos DataFrames
+    nomes_unicos = sorted(list(set([nome for par in correlacoes.keys() for nome in par])))
+
+    # Cria uma matriz para armazenar os valores de correlação
+    matriz_correlacao = pd.DataFrame(index=nomes_unicos, columns=nomes_unicos)
+
+    # Preenche a matriz com os valores de correlação
+    for (nome1, nome2), valores in correlacoes.items():
+        if valores['correlacao'] is not None:
+            if valores['p_valor'] is not None and valores['p_valor'] <= 0.05:
+                matriz_correlacao.loc[nome1, nome2] = valores['correlacao']
+                matriz_correlacao.loc[nome2, nome1] = valores['correlacao']  # Correlação é simétrica
+            else:
+                matriz_correlacao.loc[nome1, nome2] = 0  # Define como 0 se não for significativo
+                matriz_correlacao.loc[nome2, nome1] = 0
+        else:
+            matriz_correlacao.loc[nome1, nome2] = np.nan
+            matriz_correlacao.loc[nome2, nome1] = np.nan
+
+    # Converte todos os valores para numéricos (float) e substitui valores não numéricos por NaN
+    matriz_correlacao = matriz_correlacao.apply(pd.to_numeric, errors='coerce')
+    matriz_correlacao = matriz_correlacao.rename(index=lambda x: x.replace(scenario, ''), columns=lambda x: x.replace(scenario, ''))
+    print(matriz_correlacao)
+    # Gera o heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(matriz_correlacao, annot=True, cmap='coolwarm', vmin=-1, vmax=1)
+    plt.title(f'Heatmap de Correlações de Spearman ({scenario})')
+    plt.xticks(rotation=35, ha='right')
+    plt.yticks(rotation=35, va='top')
+    plt.savefig(f'graficos/heatmap_{scenario}.png', dpi=300)
+
+def distancia_frobenius(correlacoes_A, correlacoes_B):
+    """Calcula a distância de Frobenius entre duas matrizes de correlação."""
+
+    # Extrai os nomes únicos dos DataFrames
+    nomes_unicos_A = sorted(list(set([nome for par in correlacoes_A.keys() for nome in par])))
+    nomes_unicos_B = sorted(list(set([nome for par in correlacoes_B.keys() for nome in par])))
+    nomes_unicos = sorted(list(set(nomes_unicos_A + nomes_unicos_B)))  # Combina os nomes
+
+    # Cria matrizes para armazenar os valores de correlação
+    matriz_A = pd.DataFrame(index=nomes_unicos, columns=nomes_unicos)
+    matriz_B = pd.DataFrame(index=nomes_unicos, columns=nomes_unicos)
+
+    # Preenche as matrizes com os valores de correlação
+    for (nome1, nome2), valores in correlacoes_A.items():
+        if valores['correlacao'] is not None:
+            if valores['p_valor'] is not None and valores['p_valor'] <= 0.05:
+                matriz_A.loc[nome1, nome2] = valores['correlacao']
+                matriz_A.loc[nome2, nome1] = valores['correlacao']  # Correlação é simétrica
+            else:
+                matriz_A.loc[nome1, nome2] = 0  # Define como 0 se não for significativo
+                matriz_A.loc[nome2, nome1] = 0
+        else:
+            matriz_A.loc[nome1, nome2] = np.nan
+            matriz_A.loc[nome2, nome1] = np.nan
+
+    for (nome1, nome2), valores in correlacoes_B.items():
+        if valores['correlacao'] is not None:
+            if valores['p_valor'] is not None and valores['p_valor'] <= 0.05:
+                matriz_B.loc[nome1, nome2] = valores['correlacao']
+                matriz_B.loc[nome2, nome1] = valores['correlacao']  # Correlação é simétrica
+            else:
+                matriz_B.loc[nome1, nome2] = 0  # Define como 0 se não for significativo
+                matriz_B.loc[nome2, nome1] = 0
+        else:
+            matriz_B.loc[nome1, nome2] = np.nan
+            matriz_B.loc[nome2, nome1] = np.nan
+
+    # Converte para NumPy arrays e substitui NaN por 0
+    matriz_A = matriz_A.apply(pd.to_numeric, errors='coerce').fillna(0).values
+    matriz_B = matriz_B.apply(pd.to_numeric, errors='coerce').fillna(0).values
+
+    # Calcula a distância de Frobenius
+    distancia = np.linalg.norm(matriz_A - matriz_B, 'fro')
+    return distancia
+
+def correlacao_matrizes(correlacoes_A, correlacoes_B):
+    """Calcula a correlação entre duas matrizes de correlação."""
+
+    # Extrai os nomes únicos dos DataFrames
+    nomes_unicos_A = sorted(list(set([nome for par in correlacoes_A.keys() for nome in par])))
+    nomes_unicos_B = sorted(list(set([nome for par in correlacoes_B.keys() for nome in par])))
+    nomes_unicos = sorted(list(set(nomes_unicos_A + nomes_unicos_B)))  # Combina os nomes
+
+    # Cria matrizes para armazenar os valores de correlação
+    matriz_A = pd.DataFrame(index=nomes_unicos, columns=nomes_unicos)
+    matriz_B = pd.DataFrame(index=nomes_unicos, columns=nomes_unicos)
+
+    # Preenche as matrizes com os valores de correlação
+    for (nome1, nome2), valores in correlacoes_A.items():
+        if valores['correlacao'] is not None:
+            if valores['p_valor'] is not None and valores['p_valor'] <= 0.05:
+                matriz_A.loc[nome1, nome2] = valores['correlacao']
+                matriz_A.loc[nome2, nome1] = valores['correlacao']  # Correlação é simétrica
+            else:
+                matriz_A.loc[nome1, nome2] = 0  # Define como 0 se não for significativo
+                matriz_A.loc[nome2, nome1] = 0
+        else:
+            matriz_A.loc[nome1, nome2] = np.nan
+            matriz_A.loc[nome2, nome1] = np.nan
+
+    for (nome1, nome2), valores in correlacoes_B.items():
+        if valores['correlacao'] is not None:
+            if valores['p_valor'] is not None and valores['p_valor'] <= 0.05:
+                matriz_B.loc[nome1, nome2] = valores['correlacao']
+                matriz_B.loc[nome2, nome1] = valores['correlacao']  # Correlação é simétrica
+            else:
+                matriz_B.loc[nome1, nome2] = 0  # Define como 0 se não for significativo
+                matriz_B.loc[nome2, nome1] = 0
+        else:
+            matriz_B.loc[nome1, nome2] = np.nan
+            matriz_B.loc[nome2, nome1] = np.nan
+
+    # Converte para NumPy arrays e substitui NaN por 0
+    matriz_A = matriz_A.apply(pd.to_numeric, errors='coerce').fillna(0).values.flatten()
+    matriz_B = matriz_B.apply(pd.to_numeric, errors='coerce').fillna(0).values.flatten()
+
+    # Calcula a correlação de Pearson entre os elementos das matrizes
+    correlacao, _ = pearsonr(matriz_A, matriz_B)
+    return correlacao
+
+def teste_mantel(correlacoes_A, correlacoes_B, num_permutacoes=999):
+    """Calcula o teste de Mantel entre duas matrizes de correlação."""
+
+    # Extrai os nomes únicos dos DataFrames
+    nomes_unicos_A = sorted(list(set([nome for par in correlacoes_A.keys() for nome in par])))
+    nomes_unicos_B = sorted(list(set([nome for par in correlacoes_B.keys() for nome in par])))
+    nomes_unicos = sorted(list(set(nomes_unicos_A + nomes_unicos_B)))  # Combina os nomes
+
+    # Cria matrizes para armazenar os valores de correlação
+    matriz_A = pd.DataFrame(index=nomes_unicos, columns=nomes_unicos)
+    matriz_B = pd.DataFrame(index=nomes_unicos, columns=nomes_unicos)
+
+    # Preenche as matrizes com os valores de correlação
+    for (nome1, nome2), valores in correlacoes_A.items():
+        if valores['correlacao'] is not None:
+            if valores['p_valor'] is not None and valores['p_valor'] <= 0.05:
+                matriz_A.loc[nome1, nome2] = valores['correlacao']
+                matriz_A.loc[nome2, nome1] = valores['correlacao']  # Correlação é simétrica
+            else:
+                matriz_A.loc[nome1, nome2] = 0  # Define como 0 se não for significativo
+                matriz_A.loc[nome2, nome1] = 0
+        else:
+            matriz_A.loc[nome1, nome2] = np.nan
+            matriz_A.loc[nome2, nome1] = np.nan
+
+    for (nome1, nome2), valores in correlacoes_B.items():
+        if valores['correlacao'] is not None:
+            if valores['p_valor'] is not None and valores['p_valor'] <= 0.05:
+                matriz_B.loc[nome1, nome2] = valores['correlacao']
+                matriz_B.loc[nome2, nome1] = valores['correlacao']  # Correlação é simétrica
+            else:
+                matriz_B.loc[nome1, nome2] = 0  # Define como 0 se não for significativo
+                matriz_B.loc[nome2, nome1] = 0
+        else:
+            matriz_B.loc[nome1, nome2] = np.nan
+            matriz_B.loc[nome2, nome1] = np.nan
+
+    # Converte para NumPy arrays e substitui NaN por 0
+    matriz_A = matriz_A.apply(pd.to_numeric, errors='coerce').fillna(0).values
+    matriz_B = matriz_B.apply(pd.to_numeric, errors='coerce').fillna(0).values
+
+    np.fill_diagonal(matriz_A, 1)
+    np.fill_diagonal(matriz_B, 1)
+
+    # Converte as matrizes de correlação em matrizes de distância (dissimilaridade)
+    dist_A = squareform(1 - matriz_A)
+    dist_B = squareform(1 - matriz_B)
+
+    # Calcula a correlação de Mantel
+    correlacao_obs = pearsonr(dist_A.flatten(), dist_B.flatten())[0]
+
+    # Permutações
+    correlacoes_perm = []
+    for _ in range(num_permutacoes):
+        dist_B_perm = np.random.permutation(dist_B)
+        correlacao_perm = pearsonr(dist_A.flatten(), dist_B_perm.flatten())[0]
+        correlacoes_perm.append(correlacao_perm)
+
+    # Calcula o p-valor
+    p_valor = (np.sum(np.array(correlacoes_perm) >= correlacao_obs) + 1) / (num_permutacoes + 1)
+
+    return correlacao_obs, p_valor
+
+def load_sco_data(scenario):
+    dados = carregar_dados_csv(f'SCO/{scenario}.csv')
+    dados['name'] = dados['name'].str.replace('/', '-') + '-score'
+    dados = dados.set_index('name')
+    return dados
+
+df_notas, df_respostas, df_mercado, df_bb, df_terceiro = load_and_clean_data()
+
+# print(df_mercado.to_string())
+# print(df_terceiro.to_string())
+# print(df_bb.to_string())
+# print(df_respostas)
+
+# print(df_notas.to_string())
+group1, group2, group3 = split_random_groups(df_notas)
+# print(group1.to_string())
+# print(group2.to_string())
+# print(group3.to_string())
+
+df_devs = pd.concat([df_mercado, df_terceiro], axis=0, ignore_index=True).drop(['terceiro'], axis=1)
+df_devs = pd.concat([df_devs, df_bb.drop(['job time'], axis=1)], axis=0, ignore_index=True)
+
+# print(df_devs.to_string())
+
+df_group = [pd.merge(group1, df_devs, on='Id', how='left'),
+            pd.merge(group2, df_devs, on='Id', how='left'),
+            pd.merge(group3, df_devs, on='Id', how='left')]
+
+roles = ['Junior', 'Mid', 'Senior', 'Staff', 'Principal']
+
+medias = {}
+std = {}
+for role in roles:
+    role_medias = []
+    role_stds = []
+    for group in df_group:
+        # print(group)
+        role_group = group[group['role'] == role].drop(['Id', 'experience', 'language', 'role'], axis=1)
+        if not role_group.empty:
+            role_medias.append(role_group.mean())
+            role_stds.append(role_group.std())
+    if role_medias:
+        medias[role] = pd.concat(role_medias, axis=1).mean(axis=1)
+        std[role] = pd.concat(role_stds, axis=1).mean(axis=1)
+    else:
+        medias[role] = pd.Series()
+        std[role] = pd.Series()
+
+for role in roles:
+    medias[role] = medias[role].to_frame(name='score')
+    # print(role,' Medias\n',medias[role])
+    std[role] = std[role].to_frame(name='std')
+    # print(role,' Desvios\n',std[role])
+
+df_llm = {}
+llms = ['Gemini20flash', 'Llama31-405b']
+scenarios = ['Original', 'NoComments', 'BadNames']
+for llm in llms:
+    for scenario in scenarios:
+        # print(f'Carregando {scenario} para {llm}')
+        df_scenario = load(scenario, llm)
+        # print(df_scenario)
+        if llm not in df_llm or df_llm[llm].empty:
+            df_llm[llm] = df_scenario
+        else:
+            df_llm[llm] = pd.concat([df_llm[llm], df_scenario], axis=0)
+    df_llm[llm] = df_llm[llm].T
+    # print(df_llm[llm].to_string())
+
+for llm in llms:
+    medias[llm] = df_llm[llm].mean().to_frame(name='score')
+    std[llm] = df_llm[llm].std().to_frame(name='std')
+
+# for item in medias:
+    # print(item)
+    # print(item, ' medias\n', medias[item])
+
+# for item in std:
+#     print(item, ' std\n', std[item])
+
+# correlacoes = calcular_correlacoes_spearman(medias, 'score')
+# for par, valores in correlacoes.items():
+#     print(f"Correlação entre {par[0]} e {par[1]}:")
+#     print(f"  Correlação: {valores['correlacao']:.4f}")
+#     print(f"  P-valor: {valores['p_valor']:.4f}")
+#     print("-" * 30)
+
+medias_scenario = {}
+for scenario in scenarios:
+    dados_sco = load_sco_data(scenario)
+    medias_scenario['SCO' + scenario] = dados_sco.sort_index()
+    # print('\n', 'SCO ' + scenario, '\n', medias_scenario['SCO' + scenario])
+
+for scenario in scenarios:
+    for item in medias:
+        filtro = medias[item].index.str.startswith(scenario)
+        medias_scenario[item+scenario] = medias[item][filtro].sort_index()
+        # print('\n',item+' '+scenario,'\n',medias_scenario[item+scenario])
+
+medias_por_scenario = {}
+for scenario in scenarios:
+    medias_por_scenario[scenario] = {}
+    for item in medias_scenario:
+        if item.endswith(scenario):
+            medias_por_scenario[scenario][item] = medias_scenario[item]
+
+correlacao_por_scenario = {}
+for scenario in scenarios:
+    correlacoes = calcular_correlacoes_spearman(medias_por_scenario[scenario], 'score')
+    correlacao_por_scenario[scenario] = correlacoes
+    for par, valores in correlacoes.items():
+        print(f"Correlação entre {par[0]} e {par[1]}: Correlação: {valores['correlacao']:.4f} P-valor: {valores['p_valor']:.4f}")
+        # print("-" * 30)
+    criar_heatmap_correlacoes(scenario, correlacoes)
+
+    wilcoxon_test_result = calcular_teste_wilcoxon(medias_por_scenario[scenario], 'score')
+    for par, valores in wilcoxon_test_result.items():
+        print(f"Wilcoxon entre {par[0]} e {par[1]}: Estatistica: {valores['estatistica']:.4f} P-valor: {valores['p_valor']:.4f}")
 
 
-df_respostas, df_mercado, df_bb, df_terceiro = load_and_clean_data()
+distancia = distancia_frobenius(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
+corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
+correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
+print('Semelhança entre Original e NoComments')
+print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
 
-print(df_mercado.to_string())
-print(df_terceiro.to_string())
-print(df_bb.to_string())
-print(df_respostas)
+distancia = distancia_frobenius(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
+corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
+correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
+print('Semelhança entre Original e BadNames')
+print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
+
+distancia = distancia_frobenius(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
+corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
+correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
+print('Semelhança entre NoComments e BadNames')
+print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')

@@ -1,3 +1,4 @@
+import multiprocessing
 import scipy.stats as stats
 import random
 import seaborn as sns
@@ -128,11 +129,11 @@ def main():
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
                    'SampleData.java':'C7', 'SampleTree.java':'C8', 'SampleTreeCellRenderer.java':'C9', 'SampleTreeModel.java':'C10', 'Stylepad.java':'C11', 'Wonderland.java':'C12'}
 
-    # correlation_sco_llms(cenarios, class_codes, classifier_data, df_geral, llm_lists)
+    correlation_sco_llms(cenarios, class_codes, classifier_data, df_geral, llm_lists)
 
     # tabela_std(cenarios, class_codes, classes, df_geral, modelos)
-    tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
-    # mannwhitneyu_cross_cenarios(df_geral)
+    # tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
+    # wilcoxon_cross_cenarios(df_geral)
 
     # calcular_variancia_df(df_filtrado)
     # matriz_correlacao_geral(df_filtrado)
@@ -217,7 +218,7 @@ def loadScalabrino(file_path):
     df = pd.read_csv(file_path, header=None)
     return df
 
-def mannwhitneyu_cross_cenarios(df_geral):
+def wilcoxon_cross_cenarios(df_geral):
     modelos = ['GPT4o', 'GPT4o_mini',
                'Gemini15pro',
                'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude35_haiku']
@@ -232,7 +233,7 @@ def mannwhitneyu_cross_cenarios(df_geral):
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
                    'SampleData.java':'C7', 'SampleTree.java':'C8', 'SampleTreeCellRenderer.java':'C9', 'SampleTreeModel.java':'C10', 'Stylepad.java':'C11', 'Wonderland.java':'C12'}
     resultados_ordenados = []
-    alpha = 0.01
+    alpha = 0.05
     for classe in classes:
         for modelo in modelos:
             for i in range(0, len(cenarios), 2):
@@ -242,13 +243,14 @@ def mannwhitneyu_cross_cenarios(df_geral):
                 valores_grupo1 = df_geral[df_geral.index.str.contains(cenario1 + '-' + classe)][modelo].values.astype(int)
                 grupo2 = cenario2 +"-"+ class_codes[classe] +"-"+ modelo
                 valores_grupo2 = df_geral[df_geral.index.str.contains(cenario2 + '-' + classe)][modelo].values.astype(int)
-                print(f'{cenario1}-{classe}-{modelo} : {valores_grupo1}')
-                print(f'{cenario2}-{classe}-{modelo} : {valores_grupo2}')
+                # print(f'{cenario1}-{classe}-{modelo} : {valores_grupo1}')
+                # print(f'{cenario2}-{classe}-{modelo} : {valores_grupo2}')
                 n1 = len(valores_grupo1)
                 n2 = len(valores_grupo2)
                 n_total = n1 + n2
                 try:
-                    stat, p_value = mannwhitneyu(valores_grupo1, valores_grupo2)
+                    # stat, p_value = mannwhitneyu(valores_grupo1, valores_grupo2)
+                    stat, p_value = wilcoxon(valores_grupo1, valores_grupo2)
                 except ValueError as e:
                     print(f"Erro ao comparar {grupo1} e {grupo2}: {e}")
                     print("Verifique se os grupos têm dados suficientes e se os dados são numéricos.")
@@ -273,7 +275,7 @@ def mannwhitneyu_cross_cenarios(df_geral):
         p_value = item['p_value']
         z = norm.ppf(1 - item['p_value'] / 2)
         item['r'] = z / np.sqrt(item['n_total'])
-        if cenarios[3] in item['grupo2'] and modelos[7] in item['grupo2']:
+        if cenarios[5] in item['grupo2'] and modelos[7] in item['grupo2']:
             if p_value < (alpha / 10):
                 mensagem_significancia = "Diferença SIGNIFICATIVA"
             elif p_value < alpha:
@@ -282,12 +284,42 @@ def mannwhitneyu_cross_cenarios(df_geral):
                 mensagem_significancia = "Diferença NÃO significativa"
             # if 'MODERADAMENTE' in mensagem_significancia:
             mediana_diff, li, ls = calcular_mediana_diferenca_bootstrap(item['valores_grupo1'], item['valores_grupo2'])
-            poder = calcular_poder_mann_whitney(item['valores_grupo1'], item['valores_grupo2'], alpha)
-            mensagem_significancia += f", poder {poder} e Mediana da Diferença = {mediana_diff:.2f} (IC 99%: {li:.2f}, {ls:.2f})"
+            if not np.array_equal(item['valores_grupo1'], item['valores_grupo2']):
+                poder = calcular_poder_wilcoxon_paralelo(item['valores_grupo1'], item['valores_grupo2'], alpha)
+                mensagem_significancia += f", poder {poder} e Mediana da Diferença = {mediana_diff:.2f} (IC 99%: {li:.2f}, {ls:.2f})"
             print(
-                f"Mann Whitney U de {item['grupo1']} vs {item['grupo2']} (U={item['stat']:.2f}, p={p_value:.3e}), Tam. Efeito={item['r']:.2f}: {mensagem_significancia}")
+                f"Wilcoxon Signed Rank test de {item['grupo1']} vs {item['grupo2']} (U={item['stat']:.2f}, p={p_value:.3e}), Tam. Efeito={item['r']:.2f}: {mensagem_significancia}")
 
-def calcular_poder_mann_whitney(grupo1, grupo2, alpha=0.01, num_simulacoes=10000):
+def calcular_poder_wilcoxon_paralelo(grupo1, grupo2, alpha=0.05, num_simulacoes=1000, num_processos=None):
+    """Calcula o poder do teste de Wilcoxon usando processamento paralelo."""
+
+    if num_processos is None:
+        num_processos = multiprocessing.cpu_count()  # Usa todos os núcleos disponíveis
+
+    with multiprocessing.Pool(processes=num_processos) as pool:
+        resultados = pool.starmap(simular_teste_wilcoxon, [(grupo1, grupo2, alpha)] * num_simulacoes)
+
+    poder = sum(resultados) / num_simulacoes
+    return poder
+
+def simular_teste_wilcoxon(grupo1, grupo2, alpha=0.05):
+    n1 = len(grupo1)
+    n2 = len(grupo2)
+    media_grupo1 = grupo1.mean()
+    media_grupo2 = grupo2.mean()
+    desvio_grupo1 = grupo1.std()
+    desvio_grupo2 = grupo2.std()
+
+    if desvio_grupo1 == 0:
+        amostra_grupo1 = np.full(n1, media_grupo1)
+    else:
+        amostra_grupo1 = np.random.normal(media_grupo1, desvio_grupo1, n1)
+    amostra_grupo2 = np.random.normal(media_grupo2, desvio_grupo2, n2)
+
+    _, p = stats.wilcoxon(amostra_grupo1, amostra_grupo2, alternative='two-sided')
+    return p < alpha
+
+def calcular_poder_wilcoxon(grupo1, grupo2, alpha=0.05, num_simulacoes=1000):
     n1 = len(grupo1)
     n2 = len(grupo2)
     media_grupo1 = grupo1.mean()
@@ -304,8 +336,8 @@ def calcular_poder_mann_whitney(grupo1, grupo2, alpha=0.01, num_simulacoes=10000
           amostra_grupo1 = np.random.normal(media_grupo1, desvio_grupo1, n1)
         amostra_grupo2 = np.random.normal(media_grupo2, desvio_grupo2, n2)
 
-        # Executar o teste de Mann-Whitney U
-        u, p = stats.mannwhitneyu(amostra_grupo1, amostra_grupo2, alternative='two-sided')
+        # Executar o teste de wilcoxon
+        u, p = stats.wilcoxon(amostra_grupo1, amostra_grupo2, alternative='two-sided')
 
         # Verificar se a hipótese nula foi rejeitada
         if p < alpha:
