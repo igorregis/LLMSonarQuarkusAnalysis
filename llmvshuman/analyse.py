@@ -1,3 +1,4 @@
+from sklearn.metrics import accuracy_score, roc_curve, auc
 from scipy.spatial.distance import squareform, pdist
 import numpy as np
 from scipy.stats import pearsonr
@@ -240,6 +241,55 @@ def calcular_teste_wilcoxon(medias, coluna_x):
 
     return resultados_wilcoxon
 
+def count_scores(df):
+    resultado = pd.DataFrame()
+    sorted_columns = sorted(df.columns)
+    for column in sorted_columns:
+        if column != 'Id':  # Skip the 'Id' column
+            valid_scores = df[column].dropna()  # Remove NaN values
+            scores_above_or_equal_5 = valid_scores[valid_scores >= 5]
+            scores_below_5 = valid_scores[valid_scores < 5]
+
+            count_above_or_equal_5 = len(scores_above_or_equal_5)
+            count_below_5 = len(scores_below_5)
+            difference = count_above_or_equal_5 - count_below_5
+            if -5 <= difference <= 5:
+                veredicto = "INDEFINIDO"
+            elif difference > 5:
+                veredicto = "LEGÍVEL"
+            else:
+                veredicto = "ILEGÍVEL"
+            # print(f"Column: {column} Scores >= 5: {count_above_or_equal_5} Scores < 5: {count_below_5} - {veredicto}")
+            resultado[column] = veredicto
+    return resultado
+
+def plot_score_distribution(df):
+    # Create a copy of the dataframe to avoid modifying the original
+    df_copy = df.copy()
+
+    # Melt the dataframe to convert it from wide to long format
+    df_melted = pd.melt(df_copy, value_vars=df_copy.columns[1:], var_name='column', value_name='score')
+    # Drop NaN values
+    df_valid_scores = df_melted.dropna(subset=['score'])
+    # print(df_valid_scores.to_string())
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    sns.histplot(df_valid_scores['score'], kde=True, bins=11, binrange=(0, 10))  # Use histplot for histogram and KDE
+    plt.title('Distribution of Valid Scores')
+    plt.xlabel('Score')
+    plt.xlim(0, 10)
+    plt.xticks(np.arange(0, 11, 1))
+    plt.ylabel('Frequency')
+
+    # Create the 'graficos' directory if it doesn't exist
+    if not os.path.exists('graficos'):
+        os.makedirs('graficos')
+
+    # Save the plot to 'graficos/distribuicao.png'
+    plt.savefig('graficos/distribuicao.png', dpi=300)
+    plt.close()
+
 def criar_heatmap_correlacoes(scenario, correlacoes):
     # Extrai os nomes únicos dos DataFrames
     nomes_unicos = sorted(list(set([nome for par in correlacoes.keys() for nome in par])))
@@ -263,7 +313,6 @@ def criar_heatmap_correlacoes(scenario, correlacoes):
     # Converte todos os valores para numéricos (float) e substitui valores não numéricos por NaN
     matriz_correlacao = matriz_correlacao.apply(pd.to_numeric, errors='coerce')
     matriz_correlacao = matriz_correlacao.rename(index=lambda x: x.replace(scenario, ''), columns=lambda x: x.replace(scenario, ''))
-    print(matriz_correlacao)
     # Gera o heatmap
     plt.figure(figsize=(10, 8))
     sns.heatmap(matriz_correlacao, annot=True, cmap='coolwarm', vmin=-1, vmax=1)
@@ -271,6 +320,64 @@ def criar_heatmap_correlacoes(scenario, correlacoes):
     plt.xticks(rotation=35, ha='right')
     plt.yticks(rotation=35, va='top')
     plt.savefig(f'graficos/heatmap_{scenario}.png', dpi=300)
+
+def criar_graficos_dispersao(scenario, dataframes):
+    # Obtém a lista de nomes dos arquivos Java
+    nomes_arquivos = dataframes[list(dataframes.keys())[0]].index
+    # Remove a substring do cenário dos rótulos do eixo X
+    nomes_dataframes_sem_scenario = [nome.replace(scenario, '') for nome in dataframes.keys()]
+
+    # Define cores para cada DataFrame
+    cores = plt.get_cmap('tab20', len(nomes_dataframes_sem_scenario))
+
+    # Cria o gráfico de dispersão
+    plt.figure(figsize=(12, 8))
+
+    # Itera sobre cada DataFrame
+    for i, (nome_df, df) in enumerate(dataframes.items()):
+        # Itera sobre cada arquivo Java
+        for nome_arquivo in nomes_arquivos:
+            # Obtém os scores para o arquivo Java atual
+            score = df.loc[nome_arquivo, 'score']
+
+            # Plota o ponto com a cor correspondente ao DataFrame
+            plt.scatter(i, score, color=cores(i), label=nome_df.replace(scenario,'') if nome_arquivo == nomes_arquivos[0] else None)
+
+    # Adiciona legenda e rótulos
+    plt.xticks(range(len(dataframes)), nomes_dataframes_sem_scenario, rotation=45, ha='right')
+    plt.ylabel('Score')
+    plt.title(f'Dispersão de Scores para Todos os DataFrames ({scenario})')
+    plt.legend(title='DataFrames', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # Salva o gráfico
+    plt.tight_layout()  # Ajusta o layout para evitar cortes na legenda
+    plt.savefig(f'graficos/dispersao_unico_dataframes_{scenario}.png', dpi=300)
+    plt.close()
+
+def criar_boxplot_lado_a_lado(scenario, dataframes):
+    # Obtém a lista de nomes dos arquivos Java
+    nomes_arquivos = dataframes[list(dataframes.keys())[0]].index
+
+    # Remove a substring do cenário dos rótulos do eixo X
+    nomes_dataframes_sem_scenario = [nome.replace(scenario, '') for nome in dataframes.keys()]
+
+    # Cria a lista de scores para cada DataFrame
+    scores_por_dataframe = []
+    for nome_df, df in dataframes.items():
+        scores_por_dataframe.append(df['score'].values)
+
+    # Cria o boxplot
+    plt.figure(figsize=(12, 8))
+    plt.boxplot(scores_por_dataframe, tick_labels=nomes_dataframes_sem_scenario)
+
+    # Adiciona rótulos e título
+    plt.ylabel('Score')
+    plt.title(f'Distribuição de Scores por DataFrame ({scenario})')
+
+    # Salva o gráfico
+    plt.tight_layout()
+    plt.savefig(f'graficos/boxplot_unico_dataframes_{scenario}.png', dpi=300)
+    plt.close()
 
 def distancia_frobenius(correlacoes_A, correlacoes_B):
     """Calcula a distância de Frobenius entre duas matrizes de correlação."""
@@ -429,9 +536,64 @@ def load_sco_data(scenario):
     dados = carregar_dados_csv(f'SCO/{scenario}.csv')
     dados['name'] = dados['name'].str.replace('/', '-') + '-score'
     dados = dados.set_index('name')
+    dados['score'] = dados['score'] * 10
     return dados
 
+def compara_matrizes_correlacao(correlacao_por_scenario):
+    distancia = distancia_frobenius(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
+    corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
+    correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
+    print('Semelhança entre Original e NoComments')
+    print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
+    distancia = distancia_frobenius(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
+    corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
+    correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
+    print('Semelhança entre Original e BadNames')
+    print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
+    distancia = distancia_frobenius(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
+    corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
+    correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
+    print('Semelhança entre NoComments e BadNames')
+    print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
+
+def calculate_accuracy_and_roc(df):
+    correct_answers = df['All']
+    results = {}
+
+    for column in df.columns:
+        if column != 'All' and column != 'File':
+            predicted_answers = df[column]
+            accuracy = accuracy_score(correct_answers, predicted_answers)
+            results[column] = {'accuracy': accuracy}
+
+            # Calculate ROC curve
+            fpr, tpr, thresholds = roc_curve(correct_answers, predicted_answers)
+            roc_auc = auc(fpr, tpr)
+            results[column]['fpr'] = fpr
+            results[column]['tpr'] = tpr
+            results[column]['roc_auc'] = roc_auc
+
+            # Plot ROC curve
+            plt.figure()
+            plt.plot(fpr, tpr, label=f'ROC curve (area = {roc_auc:.2f})')
+            plt.plot([0, 1], [0, 1], 'k--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.title(f'ROC Curve - {column}')
+            plt.legend(loc="lower right")
+            plt.savefig(f'graficos/roc-{column}.png', dpi=300)
+
+    # Print accuracy results
+    print("Accuracy Results:")
+    for column, metrics in results.items():
+        print(f"{column}: Accuracy = {metrics['accuracy']:.4f}")
+
+    return results
+
 df_notas, df_respostas, df_mercado, df_bb, df_terceiro = load_and_clean_data()
+LIMITE_LEGIVEL = 6.19
 
 # print(df_mercado.to_string())
 # print(df_terceiro.to_string())
@@ -439,6 +601,9 @@ df_notas, df_respostas, df_mercado, df_bb, df_terceiro = load_and_clean_data()
 # print(df_respostas)
 
 # print(df_notas.to_string())
+plot_score_distribution(df_notas)
+count_scores(df_notas)
+
 group1, group2, group3 = split_random_groups(df_notas)
 # print(group1.to_string())
 # print(group2.to_string())
@@ -473,8 +638,31 @@ for role in roles:
         medias[role] = pd.Series()
         std[role] = pd.Series()
 
+readable = pd.DataFrame()
+overall_medias = []
+overall_stds = []
+for df_group in df_group:
+    # Drop non-score columns
+    score_columns = df_group.drop(['Id', 'experience', 'language', 'role'], axis=1)
+    if not score_columns.empty:
+        overall_medias.append(score_columns.mean())
+        overall_stds.append(score_columns.std())
+if overall_medias:
+    overall_means = pd.concat(overall_medias, axis=1).mean(axis=1)
+    overall_std_devs = pd.concat(overall_stds, axis=1).mean(axis=1)
+else:
+    overall_means = pd.Series()
+    overall_std_devs = pd.Series()
+df_overall_means = pd.DataFrame(overall_means, columns=['Score All'])
+df_overall_means.index.name = 'File'
+readable.index = df_overall_means.index
+readable['All'] = df_overall_means['Score All'].apply(lambda score: 1 if score >= LIMITE_LEGIVEL else 0)
+df_overall_means.sort_index(inplace=True)
+print(df_overall_means['Score All'].mean())
+
 for role in roles:
     medias[role] = medias[role].to_frame(name='score')
+    readable[role] = medias[role]['score'].apply(lambda score: 1 if score >= LIMITE_LEGIVEL else 0)
     # print(role,' Medias\n',medias[role])
     std[role] = std[role].to_frame(name='std')
     # print(role,' Desvios\n',std[role])
@@ -496,11 +684,12 @@ for llm in llms:
 
 for llm in llms:
     medias[llm] = df_llm[llm].mean().to_frame(name='score')
+    readable[llm] = medias[llm]['score'].apply(lambda score: 1 if score >= LIMITE_LEGIVEL else 0)
     std[llm] = df_llm[llm].std().to_frame(name='std')
 
 # for item in medias:
-    # print(item)
-    # print(item, ' medias\n', medias[item])
+#     print(item)
+#     print(item, ' medias\n', medias[item])
 
 # for item in std:
 #     print(item, ' std\n', std[item])
@@ -512,11 +701,21 @@ for llm in llms:
 #     print(f"  P-valor: {valores['p_valor']:.4f}")
 #     print("-" * 30)
 
+df_sco_all = pd.DataFrame
 medias_scenario = {}
 for scenario in scenarios:
     dados_sco = load_sco_data(scenario)
     medias_scenario['SCO' + scenario] = dados_sco.sort_index()
+    if df_sco_all.empty:
+        df_sco_all = pd.DataFrame(medias_scenario['SCO' + scenario])
+    else:
+        df_sco_all = pd.concat([df_sco_all, medias_scenario['SCO' + scenario]], ignore_index=False)
     # print('\n', 'SCO ' + scenario, '\n', medias_scenario['SCO' + scenario])
+
+readable['SCO'] = df_sco_all['score'].apply(lambda score: 1 if score >= LIMITE_LEGIVEL else 0)
+readable.sort_index(inplace=True)
+print(readable.to_string())
+calculate_accuracy_and_roc(readable)
 
 for scenario in scenarios:
     for item in medias:
@@ -531,6 +730,11 @@ for scenario in scenarios:
         if item.endswith(scenario):
             medias_por_scenario[scenario][item] = medias_scenario[item]
 
+# for scenario in scenarios:
+#     print(scenario, '-'*50)
+#     for item in medias_por_scenario[scenario]:
+#         print(item, ':\n',medias_por_scenario[scenario][item])
+
 correlacao_por_scenario = {}
 for scenario in scenarios:
     correlacoes = calcular_correlacoes_spearman(medias_por_scenario[scenario], 'score')
@@ -539,26 +743,11 @@ for scenario in scenarios:
         print(f"Correlação entre {par[0]} e {par[1]}: Correlação: {valores['correlacao']:.4f} P-valor: {valores['p_valor']:.4f}")
         # print("-" * 30)
     criar_heatmap_correlacoes(scenario, correlacoes)
+    criar_graficos_dispersao(scenario, medias_por_scenario[scenario])
+    criar_boxplot_lado_a_lado(scenario, medias_por_scenario[scenario])
 
     wilcoxon_test_result = calcular_teste_wilcoxon(medias_por_scenario[scenario], 'score')
     for par, valores in wilcoxon_test_result.items():
         print(f"Wilcoxon entre {par[0]} e {par[1]}: Estatistica: {valores['estatistica']:.4f} P-valor: {valores['p_valor']:.4f}")
 
-
-distancia = distancia_frobenius(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
-corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
-correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['Original'], correlacao_por_scenario['NoComments'])
-print('Semelhança entre Original e NoComments')
-print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
-
-distancia = distancia_frobenius(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
-corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
-correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['Original'], correlacao_por_scenario['BadNames'])
-print('Semelhança entre Original e BadNames')
-print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
-
-distancia = distancia_frobenius(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
-corelacao_matriz = correlacao_matrizes(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
-correlacao_obs, p_valor = teste_mantel(correlacao_por_scenario['NoComments'], correlacao_por_scenario['BadNames'])
-print('Semelhança entre NoComments e BadNames')
-print(f'Diatancia de Frobenius: {distancia}, correlação de matrizes: {corelacao_matriz} e Teste de Mantel: {correlacao_obs} p-value:{p_valor}')
+# compara_matrizes_correlacao()

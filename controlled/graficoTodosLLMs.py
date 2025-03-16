@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import multiprocessing
 import scipy.stats as stats
 import random
@@ -15,9 +16,6 @@ from scipy.stats import mannwhitneyu
 from sklearn.cluster import KMeans
 import pingouin as pg
 
-from Shatteredpixeldungeon.analiseSPD35T import print_occurrence_table
-
-
 def main():
     print(os.getcwd())
 
@@ -32,13 +30,17 @@ def main():
     llm_lists = {
         'GPT4o': 'GPT4o',
         'Claude35_sonnet': 'Claude35-sonnet',
+        'Claude37_sonnet': 'Claude37-sonnet',
         'Gemini15pro': 'Gemini15pro',
+        'Gemini20pro': 'Gemini20pro',
         'Llama31_405b': 'Llama31-405b',
         'GPT4o_mini': 'GPT4o-mini',
         'Claude35_haiku': 'Claude35-haiku',
         'Gemini15flash': 'Gemini15flash',
-        # 'Gemini20flash': 'Gemini20flash',
-        'Llama31_8b': 'Llama31-8b'
+        'Gemini20flash': 'Gemini20flash',
+        'Llama31_8b': 'Llama31-8b',
+        'DeepSeek_V3': 'DeepSeek-V3'
+
     }
 
     data_lists_copy = data_lists.copy()
@@ -120,7 +122,7 @@ def main():
 
     # matriz_correlacao_geral(df_geral)
     # print(df_geral.to_string())
-    modelos = ['GPT4o', 'GPT4o_mini', 'Gemini15pro', 'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude35_haiku']
+    modelos = ['GPT4o', 'GPT4o_mini', 'Gemini20pro', 'Gemini20flash', 'Llama31_405b', 'Llama31_8b', 'Claude37_sonnet', 'Claude35_haiku', 'DeepSeek_V3']
     cenarios = ['original', 'bad_names',
                 # 'bad_names_no_comments',
                 'clean_code', 'no_comments']
@@ -129,11 +131,11 @@ def main():
     class_codes = {'DoubleSummaryStatistics.java':'C1', 'Month.java':'C2', 'DynamicTreeNode.java':'C3', 'ElementTreePanel.java':'C4', 'HelloWorld.java':'C5', 'Notepad.java':'C6',
                    'SampleData.java':'C7', 'SampleTree.java':'C8', 'SampleTreeCellRenderer.java':'C9', 'SampleTreeModel.java':'C10', 'Stylepad.java':'C11', 'Wonderland.java':'C12'}
 
-    correlation_sco_llms(cenarios, class_codes, classifier_data, df_geral, llm_lists)
+    # correlation_sco_llms(cenarios, class_codes, classifier_data, df_geral, llm_lists)
 
     # tabela_std(cenarios, class_codes, classes, df_geral, modelos)
     # tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
-    # wilcoxon_cross_cenarios(df_geral)
+    wilcoxon_cross_cenarios(df_geral)
 
     # calcular_variancia_df(df_filtrado)
     # matriz_correlacao_geral(df_filtrado)
@@ -219,10 +221,7 @@ def loadScalabrino(file_path):
     return df
 
 def wilcoxon_cross_cenarios(df_geral):
-    modelos = ['GPT4o', 'GPT4o_mini',
-               'Gemini15pro',
-               'Gemini15flash', 'Llama31_405b', 'Llama31_8b', 'Claude35_sonnet', 'Claude35_haiku']
-    # modelos = ['Gemini15flash', 'Llama31_8b']
+    modelos = ['GPT4o', 'GPT4o_mini', 'Gemini20pro', 'Gemini20flash', 'Llama31_405b', 'Llama31_8b', 'Claude37_sonnet', 'Claude35_haiku', 'DeepSeek_V3']
     cenarios = [
                 'original', 'bad_names',
                 # 'original', 'bad_names_no_comments',
@@ -239,12 +238,16 @@ def wilcoxon_cross_cenarios(df_geral):
             for i in range(0, len(cenarios), 2):
                 cenario1 = cenarios[i]
                 cenario2 = cenarios[i+1]
-                grupo1 = cenario1 +"-"+ class_codes[classe] +"-"+ modelo
-                valores_grupo1 = df_geral[df_geral.index.str.contains(cenario1 + '-' + classe)][modelo].values.astype(int)
-                grupo2 = cenario2 +"-"+ class_codes[classe] +"-"+ modelo
-                valores_grupo2 = df_geral[df_geral.index.str.contains(cenario2 + '-' + classe)][modelo].values.astype(int)
-                # print(f'{cenario1}-{classe}-{modelo} : {valores_grupo1}')
-                # print(f'{cenario2}-{classe}-{modelo} : {valores_grupo2}')
+                try:
+                    grupo1 = cenario1 +"-"+ class_codes[classe] +"-"+ modelo
+                    valores_grupo1 = df_geral[df_geral.index.str.contains(cenario1 + '-' + classe)][modelo].values.astype(int)
+                    grupo2 = cenario2 +"-"+ class_codes[classe] +"-"+ modelo
+                    valores_grupo2 = df_geral[df_geral.index.str.contains(cenario2 + '-' + classe)][modelo].values.astype(int)
+                    # print(f'{cenario1}-{classe}-{modelo} : {valores_grupo1}')
+                    # print(f'{cenario2}-{classe}-{modelo} : {valores_grupo2}')
+                except ValueError as e:
+                    print(f'Erro {df_geral[df_geral.index.str.contains(cenario2 + '-' + classe)][modelo]}')
+                    print(e)
                 n1 = len(valores_grupo1)
                 n2 = len(valores_grupo2)
                 n_total = n1 + n2
@@ -275,7 +278,7 @@ def wilcoxon_cross_cenarios(df_geral):
         p_value = item['p_value']
         z = norm.ppf(1 - item['p_value'] / 2)
         item['r'] = z / np.sqrt(item['n_total'])
-        if cenarios[5] in item['grupo2'] and modelos[7] in item['grupo2']:
+        if cenarios[5] in item['grupo2'] and modelos[8] in item['grupo2']:
             if p_value < (alpha / 10):
                 mensagem_significancia = "Diferença SIGNIFICATIVA"
             elif p_value < alpha:
@@ -369,9 +372,11 @@ def tabela_mean(cenarios, class_codes, classes, df_geral, modelos):
         for classe in classes:
             print()
             print(f'{class_codes[classe]}\t', end='')
+            tab = ''
             for modelo in modelos:
+                if modelo.startswith('Llama'): tab = '\t'
                 df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
-                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean():.1f}\t\t', end='')
+                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean():.1f}\t\t' + tab, end='')
     for cenario in cenarios:
         if cenario != 'original':
             print()
@@ -380,23 +385,33 @@ def tabela_mean(cenarios, class_codes, classes, df_geral, modelos):
             for classe in classes:
                 print()
                 print(f'{class_codes[classe]}\t', end='')
+                tab = ''
                 for modelo in modelos:
+                    if modelo.startswith('Llama'): tab = '\t'
                     df_original = df_geral[df_geral.index.str.contains('original' + '-' + classe)]
                     df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
                     value = -100 * (1 - (df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean())/(df_original.loc[df_original[modelo] != 0, modelo].mean()))
-                    print(f'{value:.1f}{"\t\t\t\t" if value >= 10 else "\t\t\t"}', end='')
+                    print(f'{value:.1f}{"\t\t\t\t" + tab if value >= 0.1 else "\t\t\t" + tab}', end='')
 
 def tabela_std(cenarios, class_codes, classes, df_geral, modelos):
-    for cenario in cenarios:
-        print()
-        print(f'Desvio padrão de {cenario}')
-        print('\t', '\t'.join(modelos), end='')
-        for classe in classes:
+        for cenario in cenarios:
             print()
-            print(f'{class_codes[classe]}\t', end='')
-            for modelo in modelos:
-                df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
-                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].std():.1f}\t\t\t', end='')
+            print(f'Desvio padrão e Coeficiente de Variação de {cenario}')
+            print('\t', '\t\t\t'.join(modelos), end='')
+            for classe in classes:
+                print()
+                print(f'{class_codes[classe]}\t', end='')
+                tab = ''
+                for modelo in modelos:
+                    if modelo.startswith('Llama'):
+                        tab = '\t'
+                    df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
+                    valores_filtrados = df_filtrado.loc[df_filtrado[modelo] != 0, modelo]
+                    std = valores_filtrados.std()
+                    media = valores_filtrados.mean()
+                    cv = (std / media) * 100 if media != 0 else np.nan  # Calcula o CV, lidando com divisão por zero
+                    if std == 0: print('-\t\t\t\t\t' + tab, end='')
+                    else: print(f'{std:.1f} ({cv:.2f}%)\t\t\t' + tab, end='')
 
 
 def calcular_variancia_df(df):
@@ -759,8 +774,6 @@ def gerar_boxplot(data_lists, llm_lists, data_list_name):
     # plt.title(f'Boxplot dos Scores para {data_list_name}')
     plt.tight_layout()
     plt.savefig(f'graficos/boxplot_all_{data_list_name}.png', dpi=300)  # Salvar com alta resolução
-
-import matplotlib.pyplot as plt
 
 def gerar_boxplot_sobreposto(data_lists, llm_lists, data_list_name, data_list_name2):
     label_lists = {
