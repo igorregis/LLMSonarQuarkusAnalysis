@@ -1,10 +1,11 @@
-BadNames/AnoBissexto.java	0.9929537773132324
-BadNames/CalculaAreaCirculo.java	0.9998326897621155
-BadNames/CalculaAreaTrianguloIsoceles.java	0.9996333718299866
-BadNames/CalculaDVBase10.java	0.18907873332500458
-BadNames/CarregarFilhos.java	0.5198348760604858
-BadNames/Combine.java	0.7000529766082764
-BadNames/GetMedia.java	0.7585344314575195
-BadNames/MonthPlus.java	0.8347229957580566
-BadNames/MonthPrimeiroMesDoTrimestre.java	0.8746820092201233
-BadNames/MonthSubtrai.java	0.8944535851478577
+name,score
+BadNames/AnoBissexto.java,0.9929537773132324
+BadNames/CalculaAreaCirculo.java,0.9998326897621155
+BadNames/CalculaAreaTrianguloIsoceles.java,0.9996333718299866
+BadNames/CalculaDVBase10.java,0.18907873332500458
+BadNames/CarregarFilhos.java,0.5198348760604858
+BadNames/Combine.java,0.7000529766082764
+BadNames/GetMedia.java,0.7585344314575195
+BadNames/MonthPlus.java,0.8347229957580566
+BadNames/MonthPrimeiroMesDoTrimestre.java,0.8746820092201233
+BadNames/MonthSubtrai.java,0.8944535851478577

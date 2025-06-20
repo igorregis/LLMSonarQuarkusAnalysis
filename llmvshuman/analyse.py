@@ -1,3 +1,4 @@
+import re
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from scipy.spatial.distance import squareform, pdist
 import numpy as np
@@ -189,10 +190,29 @@ def load_json_data(file_path, column):
     df[column] = df[column].astype(int)
     return df.copy()
 
+def calcular_correlacoes_spearman_all(medias, coluna_x):
+    correlacoes = {}
+    chaves = list(medias.keys())
+    # Itera sobre todas as combinações de pares de DataFrames
+    for chave1, chave2 in combinations(chaves, 2):
+        df1 = medias[chave1]
+        df2 = medias[chave2]
+        # Verifica se a coluna existe em ambos os DataFrames
+        if coluna_x in df1.columns and coluna_x in df2.columns:
+            # Calcula a correlação de Spearman e o p-valor
+            # print(f'Correlação entre {chave1} e {chave2}:\n{df1[coluna_x]}\n{df2[coluna_x]}')
+            correlacao, p_valor = spearmanr(df1[coluna_x], df2[coluna_x], nan_policy='omit')
+            # print('correlacao:', correlacao, 'p_valor:', p_valor)
+            correlacoes[(chave1, chave2)] = {'correlacao': correlacao, 'p_valor': p_valor}
+        else:
+            correlacoes[(chave1, chave2)] = {'correlacao': None, 'p_valor': None, 'erro': f"Coluna '{coluna_x}' não encontrada em um dos DataFrames."}
+
+    return correlacoes
+
+
 def calcular_correlacoes_spearman(medias, coluna_x):
     correlacoes = {}
     chaves = list(medias.keys())
-
     # Itera sobre todas as combinações de pares de DataFrames
     for chave1, chave2 in combinations(chaves, 2):
         # Verifica se as chaves compartilham os últimos 9 caracteres
@@ -211,6 +231,33 @@ def calcular_correlacoes_spearman(medias, coluna_x):
                 correlacoes[(chave1, chave2)] = {'correlacao': None, 'p_valor': None, 'erro': f"Coluna '{coluna_x}' não encontrada em um dos DataFrames."}
 
     return correlacoes
+
+def calcular_teste_wilcoxon_all(medias, coluna_x):
+    resultados_wilcoxon = {}
+    chaves = list(medias.keys())
+
+    # Itera sobre todas as combinações de pares de DataFrames
+    for chave1, chave2 in combinations(chaves, 2):
+        df1 = medias[chave1]
+        df2 = medias[chave2]
+
+        # Verifica se a coluna existe em ambos os DataFrames
+        if coluna_x in df1.columns and coluna_x in df2.columns:
+            # Remove valores NaN para o teste de Wilcoxon
+            valores1 = df1[coluna_x].dropna()
+            valores2 = df2[coluna_x].dropna()
+
+            # Garante que há dados suficientes para realizar o teste
+            if len(valores1) > 0 and len(valores2) > 0:
+                # Calcula o teste de Wilcoxon
+                estatistica, p_valor = wilcoxon(valores1, valores2)
+                resultados_wilcoxon[(chave1, chave2)] = {'estatistica': estatistica, 'p_valor': p_valor}
+            else:
+                resultados_wilcoxon[(chave1, chave2)] = {'estatistica': None, 'p_valor': None, 'erro': "Dados insuficientes para realizar o teste."}
+        else:
+            resultados_wilcoxon[(chave1, chave2)] = {'estatistica': None, 'p_valor': None, 'erro': f"Coluna '{coluna_x}' não encontrada em um dos DataFrames."}
+
+    return resultados_wilcoxon
 
 def calcular_teste_wilcoxon(medias, coluna_x):
     resultados_wilcoxon = {}
@@ -371,6 +418,7 @@ def criar_boxplot_lado_a_lado(scenario, dataframes):
     plt.boxplot(scores_por_dataframe, tick_labels=nomes_dataframes_sem_scenario)
 
     # Adiciona rótulos e título
+    plt.xticks(rotation=45, ha='right')
     plt.ylabel('Score')
     plt.title(f'Distribuição de Scores por DataFrame ({scenario})')
 
@@ -592,8 +640,69 @@ def calculate_accuracy_and_roc(df):
 
     return results
 
+def plot_java_file_scores(df, scenario):
+    plt.figure(figsize=(12, 8))  # Ajuste o tamanho da figura conforme necessário
+
+    for index, row in df.iterrows():
+        plt.plot(row.values, marker='o', label=index)
+
+    plt.xticks(range(len(df.columns)), df.columns, rotation=45, ha='right')  # Rotaciona os rótulos do eixo x
+    plt.xlabel('Colunas (Modelos)')
+    plt.ylabel('Pontuação')
+    plt.ylim(0, 10)
+    plt.title(f'Pontuações dos Arquivos Java por Modelo - Cenário {scenario}')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')  # Coloca a legenda fora do gráfico
+    plt.grid(True)
+    plt.tight_layout()  # Ajusta o layout para evitar cortes nos rótulos
+    plt.savefig(f'graficos/rank-{scenario}.png', dpi=300)
+    plt.close()
+
+def combine_lists_to_dataframe(data_dict):
+    combined_data = {}
+    for name, df in data_dict.items():
+        for index, row in df.iterrows():
+            file_name = re.sub(r'-score$', '', index)  # Remove '-score' from index
+            file_name = re.sub(r'^BadNames-AnoBissexto', 'B1-AnoBissexto', file_name)
+            file_name = re.sub(r'^BadNames-CalculaAreaCirculo', 'B1-CalculaAreaCirculo', file_name)
+            file_name = re.sub(r'^BadNames-CalculaAreaTrianguloIsoceles', 'B1-CalculaAreaTrianguloIsoceles', file_name)
+            file_name = re.sub(r'^BadNames-GetMedia', 'B12-GetMedia', file_name)
+            file_name = re.sub(r'^BadNames-MonthSubtrai', 'B2-MonthSubtrai', file_name)
+            file_name = re.sub(r'^BadNames-MonthPlus', 'B2-MonthPlus', file_name)
+            file_name = re.sub(r'^BadNames-MonthPrimeiroMesDoTrimestre', 'B2-MonthPrimeiroMesDoTrimestre', file_name)
+            file_name = re.sub(r'^BadNames-Combine', 'B2-Combine', file_name)
+            file_name = re.sub(r'^BadNames-CarregarFilhos', 'B3-CarregarFilhos', file_name)
+            file_name = re.sub(r'^BadNames-CalculaDVBase10', 'B3-CalculaDVBase10', file_name)
+
+            file_name = re.sub(r'^NoComments-AnoBissexto', 'N1-AnoBissexto', file_name)
+            file_name = re.sub(r'^NoComments-CalculaAreaCirculo', 'N1-CalculaAreaCirculo', file_name)
+            file_name = re.sub(r'^NoComments-CalculaAreaTrianguloIsoceles', 'N1-CalculaAreaTrianguloIsoceles', file_name)
+            file_name = re.sub(r'^NoComments-GetMedia', 'N12-GetMedia', file_name)
+            file_name = re.sub(r'^NoComments-MonthSubtrai', 'N2-MonthSubtrai', file_name)
+            file_name = re.sub(r'^NoComments-MonthPlus', 'N2-MonthPlus', file_name)
+            file_name = re.sub(r'^NoComments-MonthPrimeiroMesDoTrimestre', 'N2-MonthPrimeiroMesDoTrimestre', file_name)
+            file_name = re.sub(r'^NoComments-Combine', 'N2-Combine', file_name)
+            file_name = re.sub(r'^NoComments-CarregarFilhos', 'N3-CarregarFilhos', file_name)
+            file_name = re.sub(r'^NoComments-CalculaDVBase10', 'N3-CalculaDVBase10', file_name)
+
+            file_name = re.sub(r'^Original-AnoBissexto', 'O1-AnoBissexto', file_name)
+            file_name = re.sub(r'^Original-CalculaAreaCirculo', 'O1-CalculaAreaCirculo', file_name)
+            file_name = re.sub(r'^Original-CalculaAreaTrianguloIsoceles', 'O1-CalculaAreaTrianguloIsoceles', file_name)
+            file_name = re.sub(r'^Original-GetMedia', 'O12-GetMedia', file_name)
+            file_name = re.sub(r'^Original-MonthSubtrai', 'O2-MonthSubtrai', file_name)
+            file_name = re.sub(r'^Original-MonthPlus', 'O2-MonthPlus', file_name)
+            file_name = re.sub(r'^Original-MonthPrimeiroMesDoTrimestre', 'O2-MonthPrimeiroMesDoTrimestre', file_name)
+            file_name = re.sub(r'^Original-Combine', 'O2-Combine', file_name)
+            file_name = re.sub(r'^Original-CarregarFilhos', 'O3-CarregarFilhos', file_name)
+            file_name = re.sub(r'^Original-CalculaDVBase10', 'O3-CalculaDVBase10', file_name)
+            if file_name not in combined_data:
+                combined_data[file_name] = {}
+            combined_data[file_name][name] = row['score']
+
+    return pd.DataFrame(combined_data).T
+
 df_notas, df_respostas, df_mercado, df_bb, df_terceiro = load_and_clean_data()
-LIMITE_LEGIVEL = 6.19
+LIMITE_LEGIVEL = 6.19 #mean
+# LIMITE_LEGIVEL = 6.06 #median
 
 # print(df_mercado.to_string())
 # print(df_terceiro.to_string())
@@ -612,7 +721,7 @@ group1, group2, group3 = split_random_groups(df_notas)
 df_devs = pd.concat([df_mercado, df_terceiro], axis=0, ignore_index=True).drop(['terceiro'], axis=1)
 df_devs = pd.concat([df_devs, df_bb.drop(['job time'], axis=1)], axis=0, ignore_index=True)
 
-# print(df_devs.to_string())
+print(df_devs.to_string())
 
 df_group = [pd.merge(group1, df_devs, on='Id', how='left'),
             pd.merge(group2, df_devs, on='Id', how='left'),
@@ -659,6 +768,7 @@ readable.index = df_overall_means.index
 readable['All'] = df_overall_means['Score All'].apply(lambda score: 1 if score >= LIMITE_LEGIVEL else 0)
 df_overall_means.sort_index(inplace=True)
 print(df_overall_means['Score All'].mean())
+print(df_overall_means['Score All'].median())
 
 for role in roles:
     medias[role] = medias[role].to_frame(name='score')
@@ -668,7 +778,7 @@ for role in roles:
     # print(role,' Desvios\n',std[role])
 
 df_llm = {}
-llms = ['Gemini20flash', 'Llama31-405b']
+llms = ['Gemini20flash', 'Gemini20pro', 'Claude35-haiku', 'Claude37-sonnet', 'DeepSeek-V3', 'Llama31-405b', 'Llama31-8b', 'GPT4o', 'GPT4o-mini']
 scenarios = ['Original', 'NoComments', 'BadNames']
 for llm in llms:
     for scenario in scenarios:
@@ -686,10 +796,6 @@ for llm in llms:
     medias[llm] = df_llm[llm].mean().to_frame(name='score')
     readable[llm] = medias[llm]['score'].apply(lambda score: 1 if score >= LIMITE_LEGIVEL else 0)
     std[llm] = df_llm[llm].std().to_frame(name='std')
-
-# for item in medias:
-#     print(item)
-#     print(item, ' medias\n', medias[item])
 
 # for item in std:
 #     print(item, ' std\n', std[item])
@@ -711,6 +817,11 @@ for scenario in scenarios:
     else:
         df_sco_all = pd.concat([df_sco_all, medias_scenario['SCO' + scenario]], ignore_index=False)
     # print('\n', 'SCO ' + scenario, '\n', medias_scenario['SCO' + scenario])
+
+medias['SCO'] = df_sco_all
+# for item in medias:
+#     print(item)
+#     print(item, ' medias\n', medias[item])
 
 readable['SCO'] = df_sco_all['score'].apply(lambda score: 1 if score >= LIMITE_LEGIVEL else 0)
 readable.sort_index(inplace=True)
@@ -735,19 +846,46 @@ for scenario in scenarios:
 #     for item in medias_por_scenario[scenario]:
 #         print(item, ':\n',medias_por_scenario[scenario][item])
 
-correlacao_por_scenario = {}
-for scenario in scenarios:
-    correlacoes = calcular_correlacoes_spearman(medias_por_scenario[scenario], 'score')
-    correlacao_por_scenario[scenario] = correlacoes
-    for par, valores in correlacoes.items():
-        print(f"Correlação entre {par[0]} e {par[1]}: Correlação: {valores['correlacao']:.4f} P-valor: {valores['p_valor']:.4f}")
-        # print("-" * 30)
-    criar_heatmap_correlacoes(scenario, correlacoes)
-    criar_graficos_dispersao(scenario, medias_por_scenario[scenario])
-    criar_boxplot_lado_a_lado(scenario, medias_por_scenario[scenario])
+# correlacao_por_scenario = {}
+# for scenario in scenarios:
+#     correlacoes = calcular_correlacoes_spearman(medias_por_scenario[scenario], 'score')
+#     correlacao_por_scenario[scenario] = correlacoes
+#     for par, valores in correlacoes.items():
+#         print(f"Correlação entre {par[0]} e {par[1]}: Correlação: {valores['correlacao']:.4f} P-valor: {valores['p_valor']:.4f}")
+#         # print("-" * 30)
+#     criar_heatmap_correlacoes(scenario, correlacoes)
+#     criar_graficos_dispersao(scenario, medias_por_scenario[scenario])
+#     criar_boxplot_lado_a_lado(scenario, medias_por_scenario[scenario])
+#
+#     wilcoxon_test_result = calcular_teste_wilcoxon(medias_por_scenario[scenario], 'score')
+#     for par, valores in wilcoxon_test_result.items():
+#         print(f"Wilcoxon entre {par[0]} e {par[1]}: Estatistica: {valores['estatistica']:.4f} P-valor: {valores['p_valor']:.4f}")
 
-    wilcoxon_test_result = calcular_teste_wilcoxon(medias_por_scenario[scenario], 'score')
-    for par, valores in wilcoxon_test_result.items():
-        print(f"Wilcoxon entre {par[0]} e {par[1]}: Estatistica: {valores['estatistica']:.4f} P-valor: {valores['p_valor']:.4f}")
+# correlacoes = calcular_correlacoes_spearman_all(medias, 'score')
+# for par, valores in correlacoes.items():
+#     print(f"Correlação entre {par[0]} e {par[1]}: Correlação: {valores['correlacao']:.4f} P-valor: {valores['p_valor']:.4f}")
+#     # print("-" * 30)
+# criar_heatmap_correlacoes('All', correlacoes)
+# criar_graficos_dispersao('All', medias)
+# criar_boxplot_lado_a_lado('All', medias)
+#
+# wilcoxon_test_result = calcular_teste_wilcoxon_all(medias, 'score')
+# for par, valores in wilcoxon_test_result.items():
+#     print(f"Wilcoxon entre {par[0]} e {par[1]}: Estatistica: {valores['estatistica']:.4f} P-valor: {valores['p_valor']:.4f}")
+
+df_medias = combine_lists_to_dataframe(medias)
+print(df_medias.to_string())
+
+for scenario in scenarios:
+    filter = 'O'
+    if scenario == 'BadNames':
+        filter = 'B'
+    elif scenario == 'NoComments':
+        filter = 'N'
+
+    plot_java_file_scores(df_medias[df_medias.index.str.startswith(filter + '1')].sort_index(), scenario + '-1')
+    plot_java_file_scores(df_medias[df_medias.index.str.startswith(filter+'2')].sort_index(), scenario + '-2')
+    plot_java_file_scores(df_medias[df_medias.index.str.startswith(filter + '3')].sort_index(), scenario + '-3')
+
 
 # compara_matrizes_correlacao()

@@ -1,3 +1,5 @@
+from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import cohen_kappa_score
 import matplotlib.pyplot as plt
 import multiprocessing
 import scipy.stats as stats
@@ -122,9 +124,9 @@ def main():
 
     # matriz_correlacao_geral(df_geral)
     # print(df_geral.to_string())
+                # 'bad_names_no_comments',
     modelos = ['GPT4o', 'GPT4o_mini', 'Gemini20pro', 'Gemini20flash', 'Llama31_405b', 'Llama31_8b', 'Claude37_sonnet', 'Claude35_haiku', 'DeepSeek_V3']
     cenarios = ['original', 'bad_names',
-                # 'bad_names_no_comments',
                 'clean_code', 'no_comments']
     classes = ['DoubleSummaryStatistics.java', 'Month.java', 'DynamicTreeNode.java', 'ElementTreePanel.java', 'HelloWorld.java', 'Notepad.java',
                'SampleData.java', 'SampleTree.java', 'SampleTreeCellRenderer.java', 'SampleTreeModel.java', 'Stylepad.java', 'Wonderland.java']
@@ -135,7 +137,28 @@ def main():
 
     # tabela_std(cenarios, class_codes, classes, df_geral, modelos)
     # tabela_mean(cenarios, class_codes, classes, df_geral, modelos)
-    wilcoxon_cross_cenarios(df_geral)
+    # concordancia(cenarios, class_codes, classes, df_geral, modelos)
+    dfs = concordancia_df(cenarios, class_codes, classes, df_geral, modelos)
+    dfs_with_sco = add_sco_column(dfs, classifier_data, class_codes)
+    dfs_classified = apply_classification_rules(dfs_with_sco)
+
+    # agreement_analysis = analyze_agreement(dfs_classified)
+    # agreement_analysis = analyze_agreement_kappa(dfs_classified)
+    # print_agreement_description(agreement_analysis)
+    # print_latex_tables(agreement_analysis)
+
+    agreement_analysis = analyze_precision_recall_f1(dfs_classified)
+    print_metrics_description(agreement_analysis)
+    print_prf_latex_tables(agreement_analysis)
+    for df in dfs_classified:
+        print('Scenario: ',df,'\n' , dfs_classified[df].to_string())
+
+
+    # wilcoxon_cross_cenarios(df_geral)
+
+    # print(classifier_data.info())
+    # print(df_geral.to_string())
+
 
     # calcular_variancia_df(df_filtrado)
     # matriz_correlacao_geral(df_filtrado)
@@ -278,7 +301,7 @@ def wilcoxon_cross_cenarios(df_geral):
         p_value = item['p_value']
         z = norm.ppf(1 - item['p_value'] / 2)
         item['r'] = z / np.sqrt(item['n_total'])
-        if cenarios[5] in item['grupo2'] and modelos[8] in item['grupo2']:
+        if cenarios[3] in item['grupo2'] and modelos[8] in item['grupo2']:
             if p_value < (alpha / 10):
                 mensagem_significancia = "Diferença SIGNIFICATIVA"
             elif p_value < alpha:
@@ -363,6 +386,535 @@ def calcular_mediana_diferenca_bootstrap(grupo1, grupo2, num_bootstraps=10000, n
     limite_superior = np.quantile(diferencas, 1 - alpha / 2)
     mediana_diferenca = np.median(diferencas)
     return mediana_diferenca, limite_inferior, limite_superior
+
+def concordancia(cenarios, class_codes, classes, df_geral, modelos):
+    for cenario in cenarios:
+        print()
+        print(f'Scores de {cenario}')
+        print('\t', '\t'.join(modelos), end='')
+        for classe in classes:
+            print()
+            print(f'{class_codes[classe]}\t', end='')
+            tab = ''
+            for modelo in modelos:
+                if modelo.startswith('Llama'): tab = '\t'
+                df_filtrado = df_geral[df_geral.index.str.contains(cenario + '-' + classe)]
+                print(f'{df_filtrado.loc[df_filtrado[modelo] != 0, modelo].mean():.1f}\t\t' + tab, end='')
+
+
+def analyze_agreement_kappa(transformed_dfs):
+    """
+    Calculates the agreement between each LLM and the 'SCO' column using Cohen's Kappa (κ).
+
+    This function iterates through each scenario's DataFrame and computes the Kappa
+    score, which measures inter-rater agreement while correcting for agreement
+    that might occur by chance.
+
+    Args:
+        transformed_dfs (dict): A dictionary where keys are scenario names and
+                                values are the transformed pandas DataFrames.
+                                Each DataFrame must contain an 'SCO' column.
+
+    Returns:
+        dict: A dictionary where keys are scenario names and values are pandas
+              Series containing the Cohen's Kappa score for each LLM.
+    """
+    kappa_results = {}
+    # Define the set of all possible classification labels.
+    # This is important for ensuring Kappa is calculated correctly even if
+    # a rater doesn't use all possible labels in a given sample.
+    labels = [-1, 0, 1]
+
+    for scenario, df in transformed_dfs.items():
+        if 'SCO' not in df.columns:
+            print(f"Warning: 'SCO' column not found in scenario '{scenario}'. Skipping.")
+            continue
+
+        sco_truth = df['SCO']
+        llm_columns = df.columns.drop('SCO')
+
+        scenario_kappas = {}
+        for llm in llm_columns:
+            # Calculate Cohen's Kappa for the current LLM vs. the SCO column
+            kappa_value = cohen_kappa_score(sco_truth, df[llm], labels=labels)
+            scenario_kappas[llm] = kappa_value
+
+        # Store the results for the scenario as a pandas Series
+        kappa_results[scenario] = pd.Series(scenario_kappas)
+
+    return kappa_results
+
+def analyze_agreement(transformed_dfs):
+    """
+    Analyzes and calculates the percentage agreement between each LLM column and the 'SCO' column.
+
+    This function iterates through each scenario in the input dictionary. For each
+    scenario's DataFrame, it compares every LLM's classification against the 'SCO'
+    classification on a row-by-row basis.
+
+    Args:
+        transformed_dfs (dict): A dictionary where keys are scenario names and
+                                values are the transformed pandas DataFrames.
+                                Each DataFrame must contain an 'SCO' column and
+                                one or more LLM columns.
+
+    Returns:
+        dict: A dictionary where keys are scenario names and values are
+              pandas Series containing the agreement percentage for each LLM.
+    """
+    agreement_results = {}
+
+    for scenario, df in transformed_dfs.items():
+        # Ensure the 'SCO' column exists to avoid errors
+        if 'SCO' not in df.columns:
+            print(f"Warning: 'SCO' column not found in scenario '{scenario}'. Skipping.")
+            continue
+
+        # Isolate the ground truth column ('SCO') and the LLM prediction columns
+        sco_truth = df['SCO']
+        llm_columns = df.columns.drop('SCO')
+
+        # Calculate the number of exact matches for each LLM column against the SCO column
+        # The result of the comparison (==) is a boolean DataFrame. sum() treats True as 1 and False as 0.
+        agreement_counts = df[llm_columns].eq(sco_truth, axis=0).sum()
+
+        # Calculate the percentage by dividing by the total number of classes (rows)
+        total_classes = len(df)
+        agreement_percentage = (agreement_counts / total_classes) * 100
+
+        agreement_results[scenario] = agreement_percentage
+
+    return agreement_results
+
+
+def print_latex_tables(agreement_results):
+    """
+    Generates and prints LaTeX tables from the agreement analysis results.
+
+    The format of the table is specifically structured with multi-row headers
+    grouping the models by family.
+
+    Args:
+        agreement_results (dict): A dictionary from the `analyze_agreement` function,
+                                  where keys are scenario names and values are
+                                  pandas Series of agreement percentages.
+    """
+    # --- 1. Mappings for dynamic content generation ---
+
+    # Map scenario keys to human-readable titles for the LaTeX captions
+    scenario_to_title = {
+        'original': 'Original Code',
+        'no_comments': 'Comments Removed',
+        'bad_names': 'Identifier Names Obfuscated',
+        'clean_code': 'Clean Code (Refactored)'
+    }
+
+    # Map scenario keys to labels for cross-referencing in LaTeX
+    scenario_to_label = {
+        'original': 'tab:agreementOriginal',
+        'no_comments': 'tab:agreementNoComments',
+        'bad_names': 'tab:agreementBadNames',
+        'clean_code': 'tab:agreementCleanCode'
+    }
+
+    # Define the structure and order of model families for the table headers
+    model_structure = {
+        'ChatGPT': ['GPT4o', 'GPT4o_mini'],
+        'Gemini': ['Gemini20pro', 'Gemini20flash'],
+        'Llama': ['Llama31_405b', 'Llama31_8b'],
+        'Claude': ['Claude37_sonnet', 'Claude35_haiku'],
+        'Deep': ['DeepSeek_V3']
+    }
+
+    # Flatten the list of models to define the column order
+    model_order = [model for family in model_structure.values() for model in family]
+
+    # Map internal model names to their specific text in the header rows
+    model_display_map = {
+        'GPT4o': {'line2': '4o', 'line3': ' '},
+        'GPT4o_mini': {'line2': '4o', 'line3': 'mini'},
+        'Gemini20pro': {'line2': '2.0', 'line3': 'Pro'},
+        'Gemini20flash': {'line2': '2.0', 'line3': 'Flash'},
+        'Llama31_405b': {'line2': '3.1', 'line3': '405B'},
+        'Llama31_8b': {'line2': '3.1', 'line3': '8B'},
+        'Claude37_sonnet': {'line2': '3.7', 'line3': 'Sonnet'},
+        'Claude35_haiku': {'line2': '3.5', 'line3': 'Haiku'},
+        # Handle the special formatting for DeepSeek from your example
+        'DeepSeek_V3': {'line2': r'\textbf{Seek}', 'line3': 'V3'}
+    }
+
+    # --- 2. Iterate through scenarios and generate each table ---
+
+    for scenario, percentages in agreement_results.items():
+        title = scenario_to_title.get(scenario, scenario.replace('_', ' ').title())
+        label = scenario_to_label.get(scenario, f'tab:agreement{scenario.title()}')
+
+        # Build each part of the LaTeX string
+
+        # Header for the table environment
+        latex_lines = [
+            r'\begin{table}[htbp]',
+            r'\vspace{-5pt}',
+            r'    \centering',
+            r'    \scriptsize',
+            fr'    \caption{{Agreement with Scalabrino Classifier - {title}}}',
+            fr'    \begin{{tabular}}{{l{"r" * len(model_order)}}}',  # l for the first col, r for each model
+            r'        \toprule',
+        ]
+
+        # Header Row 1: Model Families (e.g., \multicolumn{2}{c}{\textbf{ChatGPT}})
+        header1_parts = []
+        for family, models_in_family in model_structure.items():
+            col_span = len(models_in_family)
+            header1_parts.append(fr'& \multicolumn{{{col_span}}}{{c}}{{\textbf{{{family}}}}} ')
+        latex_lines.append("".join(header1_parts) + r'\\')
+
+        # Mid-rule
+        latex_lines.append(fr'        \cmidrule{{2-{len(model_order) + 1}}}')
+
+        # Header Row 2: Model Versions (e.g., 4o, 2.0, 3.1)
+        header2_parts = [r'         ']
+        for model_name in model_order:
+            header2_parts.append(f"& {model_display_map[model_name]['line2']} ")
+        latex_lines.append("".join(header2_parts) + r'\\')
+
+        # Header Row 3: Model Sub-versions (e.g., mini, Pro, 405B)
+        header3_parts = [r'                        ']  # Initial empty cell
+        header3_parts.extend([f"& {model_display_map[model_name]['line3']} " for model_name in model_order])
+        latex_lines.append("".join(header3_parts) + r'\\')
+
+        # Main data row
+        latex_lines.append(r'        \midrule')
+        data_row_parts = [r'        Agreement ']
+        for model_name in model_order:
+            # Format percentage to integer if whole number, else keep decimals
+            val = percentages[model_name]
+            formatted_val = f'{val:g}'  # 'g' format removes trailing .0
+            data_row_parts.append(fr'& {formatted_val}\% ')
+        latex_lines.append("".join(data_row_parts) + r'\\')
+
+        # Footer for the table environment
+        latex_lines.extend([
+            r'        \bottomrule',
+            r'    \end{tabular}',
+            fr'    \label{{{label}}}',
+            r'    \vspace{-5pt}',
+            r'\end{table}',
+            '\n'  # Add a newline for separation between tables
+        ])
+
+        # Print the complete LaTeX block for the scenario
+        print("\n".join(latex_lines))
+
+def print_agreement_description(agreement_results):
+    """Formats and prints the agreement analysis results."""
+    for scenario, percentages in agreement_results.items():
+        print(f"Scenario: {scenario}")
+        print("=" * (len(scenario) + 10))
+        print("Percentage Agreement with SCO classification:")
+        for llm, percentage in percentages.items():
+            print(f"- {llm:<18}: {percentage:6.2f}%")
+        print("\n" + "-"*40 + "\n")
+
+
+def print_metrics_description(prf_results):
+    """
+    Formats and prints a text-based summary of precision, recall, and F1-score results.
+
+    This function is designed to work with the output of `analyze_precision_recall_f1`,
+    which is a dictionary of pandas DataFrames.
+
+    Args:
+        prf_results (dict): A dictionary from `analyze_precision_recall_f1`.
+    """
+    for scenario, metrics_df in prf_results.items():
+        print(f"Scenario: {scenario}")
+        print("=" * (len(scenario) + 10))
+
+        # metrics_df is a DataFrame with models as the index and PRF as columns
+        # We use .iterrows() to loop through each model's metrics
+        for llm, metrics in metrics_df.iterrows():
+            # llm is the model name (e.g., 'GPT4o')
+            # metrics is a Series containing 'precision', 'recall', 'f1-score' for that model
+            p = metrics['precision']
+            r = metrics['recall']
+            f1 = metrics['f1-score']
+
+            print(f"- {llm:<18}: "
+                  f"Precision: {p:.2f}, "
+                  f"Recall: {r:.2f}, "
+                  f"F1-Score: {f1:.2f}")
+
+        print("\n" + "-" * 40 + "\n")
+
+def analyze_precision_recall_f1(transformed_dfs):
+    """
+    Calculates macro-averaged precision, recall, and F1-score for each LLM
+    against the 'SCO' ground truth column.
+
+    Args:
+        transformed_dfs (dict): A dictionary where keys are scenario names and
+                                values are the transformed pandas DataFrames.
+
+    Returns:
+        dict: A dictionary where keys are scenario names and values are pandas
+              DataFrames. Each DataFrame is indexed by the LLM name and has
+              columns for 'precision', 'recall', and 'f1-score'.
+    """
+    results = {}
+    # Define the set of all possible classification labels for consistency.
+    labels = [-1, 0, 1]
+
+    for scenario, df in transformed_dfs.items():
+        if 'SCO' not in df.columns:
+            print(f"Warning: 'SCO' column not found in scenario '{scenario}'. Skipping.")
+            continue
+
+        sco_truth = df['SCO']
+        llm_columns = df.columns.drop('SCO')
+
+        scenario_metrics = []
+        for llm in llm_columns:
+            # Use scikit-learn to compute the metrics.
+            # 'average="macro"' calculates metrics for each label, then finds their unweighted mean.
+            # 'zero_division=0' prevents warnings and returns 0.0 if a metric is ill-defined.
+            p, r, f1, _ = precision_recall_fscore_support(
+                sco_truth,
+                df[llm],
+                average='weighted',
+                labels=labels,
+                zero_division=0
+            )
+            scenario_metrics.append({
+                'model': llm,
+                'precision': p,
+                'recall': r,
+                'f1-score': f1
+            })
+
+        # Convert the list of dictionaries to a DataFrame for easy handling
+        results_df = pd.DataFrame(scenario_metrics).set_index('model')
+        results[scenario] = results_df
+
+    return results
+
+
+def print_prf_latex_tables(prf_results):
+    """
+    Generates and prints LaTeX tables for precision, recall, and F1-score results.
+    The table includes three data rows for the three metrics.
+
+    Args:
+        prf_results (dict): A dictionary from `analyze_precision_recall_f1`.
+    """
+    # --- Mappings are the same as before ---
+    scenario_to_title = {
+        'original': 'Original Code',
+        'no_comments': 'Comments Removed',
+        'bad_names': 'Identifier Names Obfuscated',
+        'clean_code': 'Clean Code (Refactored)'
+    }
+    scenario_to_label = {
+        'original': 'tab:prfOriginal',
+        'no_comments': 'tab:prfNoComments',
+        'bad_names': 'tab:prfBadNames',
+        'clean_code': 'tab:prfCleanCode'
+    }
+    model_structure = {
+        'ChatGPT': ['GPT4o', 'GPT4o_mini'],
+        'Gemini': ['Gemini20pro', 'Gemini20flash'],
+        'Llama': ['Llama31_405b', 'Llama31_8b'],
+        'Claude': ['Claude37_sonnet', 'Claude35_haiku'],
+        'Deep': ['DeepSeek_V3']
+    }
+    model_order = [model for family in model_structure.values() for model in family]
+    model_display_map = {
+        'GPT4o': {'line2': '4o', 'line3': ' '},
+        'GPT4o_mini': {'line2': '4o', 'line3': 'mini'},
+        'Gemini20pro': {'line2': '2.0', 'line3': 'Pro'},
+        'Gemini20flash': {'line2': '2.0', 'line3': 'Flash'},
+        'Llama31_405b': {'line2': '3.1', 'line3': '405B'},
+        'Llama31_8b': {'line2': '3.1', 'line3': '8B'},
+        'Claude37_sonnet': {'line2': '3.7', 'line3': 'Sonnet'},
+        'Claude35_haiku': {'line2': '3.5', 'line3': 'Haiku'},
+        'DeepSeek_V3': {'line2': r'\textbf{Seek}', 'line3': 'V3'}
+    }
+
+    # --- Iterate through scenarios and generate each table ---
+    for scenario, results_df in prf_results.items():
+        title = scenario_to_title.get(scenario, scenario.replace('_', ' ').title())
+        label = scenario_to_label.get(scenario, f'tab:prf{scenario.title()}')
+
+        # --- Build LaTeX Header (same as before) ---
+        latex_lines = [
+            r'\begin{table}[htbp]',
+            r'\vspace{-5pt}',
+            r'    \centering',
+            r'    \scriptsize',
+            fr'    \caption{{Precision, Recall, and F1-score vs. Scalabrino Classifier - {title}}}',
+            fr'    \begin{{tabular}}{{l{"r" * len(model_order)}}}',
+            r'        \toprule',
+        ]
+        header1_parts = []
+        for family, models in model_structure.items():
+            header1_parts.append(fr'& \multicolumn{{{len(models)}}}{{c}}{{\textbf{{{family}}}}} ')
+        latex_lines.append("".join(header1_parts) + r'\\')
+        latex_lines.append(fr'        \cmidrule{{2-{len(model_order) + 1}}}')
+        header2_parts = [r'        \textbf{Metric} ']
+        header2_parts.extend([f"& {model_display_map[name]['line2']} " for name in model_order])
+        latex_lines.append("".join(header2_parts) + r'\\')
+        header3_parts = [r'                  & ']
+        header3_parts.extend([f"& {model_display_map[name]['line3']} " for name in model_order])
+        latex_lines.append("".join(header3_parts) + r'\\')
+        latex_lines.append(r'        \midrule')
+
+        # --- Build LaTeX Data Rows (New Logic) ---
+        for metric in ['precision', 'recall', 'f1-score']:
+            metric_label = metric.replace('_', '-').title()
+            row_parts = [f"        {metric_label} "]
+            for model_name in model_order:
+                # Get the value from the results DataFrame
+                val = results_df.loc[model_name, metric]
+                row_parts.append(f'& {val*100:.2f}\% ')
+            latex_lines.append("".join(row_parts) + r'\\')
+
+        # --- Build LaTeX Footer (same as before) ---
+        latex_lines.extend([
+            r'        \bottomrule',
+            r'    \end{tabular}',
+            fr'    \label{{{label}}}',
+            r'    \vspace{-5pt}',
+            r'\end{table}',
+            '\n'
+        ])
+        print("\n".join(latex_lines))
+
+def apply_classification_rules(dfs_with_sco):
+    """
+    Applies a set of classification rules to every numerical value in each DataFrame
+    within a dictionary of DataFrames.
+
+    The rules are:
+    - Values from 60 to 100 (inclusive) are mapped to 1.
+    - Values between 41.6 and 60 (exclusive) are mapped to -1.
+    - Values from 0 to 41.6 (inclusive) are mapped to 0.
+
+    Args:
+        dfs_with_sco (dict): A dictionary where keys are scenario names and values
+                             are pandas DataFrames containing numerical scores.
+
+    Returns:
+        dict: A new dictionary of DataFrames with the transformation rules applied.
+              The original dictionary is not modified.
+    """
+    # Create a deep copy to ensure the original data structure is not mutated.
+    transformed_dfs = {scenario: df.copy() for scenario, df in dfs_with_sco.items()}
+
+    def classify_value(value):
+        """Helper function to apply the classification logic to a single value."""
+        if not pd.isna(value):
+            if 60 <= value <= 100:
+                return 1
+            elif 41.6 < value < 60:
+                return -1
+            elif 0 <= value <= 41.6:
+                return 0
+        return value # Return the original value if it's NaN or doesn't fit the criteria
+
+    # Iterate through the copied dictionary and apply the function to each DataFrame
+    for scenario, df in transformed_dfs.items():
+        transformed_dfs[scenario] = df.applymap(classify_value)
+
+    return transformed_dfs
+
+def add_sco_column(dfs, classifier_data, class_codes):
+    """
+    Adds a 'SCO' column to each DataFrame in a dictionary of DataFrames.
+
+    The function maps scores from the classifier_data DataFrame to the
+    correct scenario and class in the dfs dictionary.
+
+    Args:
+        dfs (dict): A dictionary of pandas DataFrames, with scenario names as keys.
+                    Each DataFrame is indexed by class codes.
+        classifier_data (pd.DataFrame): A DataFrame with a 'sco' column,
+                                        indexed by a string like 'scenario-classname'.
+        class_codes (dict): A dictionary mapping full class names (e.g., 'Month.java')
+                            to class codes (e.g., 'C1', 'C2').
+
+    Returns:
+        dict: A new dictionary of DataFrames, where each DataFrame includes the added 'SCO' column.
+              The original dictionary is not modified.
+    """
+    # Create a deep copy to avoid modifying the original dictionary of DataFrames
+    updated_dfs = {scenario: df.copy() for scenario, df in dfs.items()}
+
+    # For mapping class names back to their codes efficiently
+    # Example: {'DoubleSummaryStatistics.java': 'C1', ...}
+    # This is the provided class_codes dictionary
+
+    for scenario, df in updated_dfs.items():
+        # Filter classifier_data for the current scenario
+        # This selects rows where the index starts with the scenario name, e.g., 'original-'
+        scenario_scores = classifier_data[classifier_data.index.str.startswith(f'{scenario}-')]
+
+        # Extract the class name from the index (e.g., 'DoubleSummaryStatistics.java')
+        # and map it to the corresponding class code (e.g., 'C1')
+        def get_class_code(index_label):
+            class_name = index_label.replace(f'{scenario}-', '')
+            return class_codes.get(class_name)
+
+        # Create a Series of scores indexed by the class code ('C1', 'C2', etc.)
+        sco_series = scenario_scores['sco'].rename(index=get_class_code)
+
+        # Add the 'SCO' column to the DataFrame by mapping the scores using the index
+        df['SCO'] = df.index.map(sco_series)
+
+        # Round the new column to a desired precision, e.g., 2 decimal places
+        df['SCO'] = df['SCO'].round(2)
+
+    return updated_dfs
+
+def concordancia_df(cenarios, class_codes, classes, df_geral, modelos):
+    results = {}
+
+    for cenario in cenarios:
+        # List to hold the data for the current scenario's DataFrame
+        data_for_df = []
+
+        for classe in classes:
+            # Dictionary to build a single row of the DataFrame
+            row_data = {'Class': class_codes[classe]}
+
+            for modelo in modelos:
+                # Filter the DataFrame for the specific scenario and class
+                df_filtrado = df_geral[df_geral.index.str.contains(f'{cenario}-{classe}')]
+
+                # Calculate the mean for non-zero values
+                # Using .get(modelo, pd.NA) handles cases where a model column might be missing for a slice
+                mean_value = df_filtrado.loc[df_filtrado.get(modelo, 0) != 0, modelo].mean()
+
+                # Store the calculated mean in our row dictionary
+                row_data[modelo] = mean_value
+
+            # Add the completed row to our list of data
+            data_for_df.append(row_data)
+
+        # Create the DataFrame for the current scenario
+        df_scenario = pd.DataFrame(data_for_df)
+        df_scenario.set_index('Class', inplace=True)
+
+        # Store the DataFrame in our results dictionary
+        results[cenario] = df_scenario.round(1)  # Rounding to one decimal place as in the print statement
+
+    # If only one scenario was processed, return the DataFrame directly.
+    # Otherwise, return the dictionary of DataFrames.
+    if len(cenarios) == 1:
+        return results[cenarios[0]]
+
+    return results
+
+
 
 def tabela_mean(cenarios, class_codes, classes, df_geral, modelos):
     for cenario in cenarios:
@@ -980,3 +1532,21 @@ if __name__ == "__main__":
 # {"metric":"comment_lines_density","value":"0.0","bestValue":false},
 # {"metric":"lines","value":"8","bestValue":false},
 # {"metric":"sqale_rating","value":"1.0","bestValue":true}]}}}
+
+
+
+#                                             Claude35_haiku Claude35_sonnet Claude37_sonnet DeepSeek_V3 GPT4o GPT4o_mini  Gemini15flash Gemini15pro
+# 1-bad_names-DoubleSummaryStatistics.java                85              35              20          40    65         65             40          10
+# 1-bad_names-DynamicTreeNode.java                        75              45              35          75    75         75             40          10
+# 1-bad_names-ElementTreePanel.java                       75              45              40          65    75         75             40          10
+# 1-bad_names-HelloWorld.java                             65              45              30          40    75         65             20          10
+# 1-bad_names-Month.java                                  95              95              65          85    85         85             75          10
+# 1-bad_names-Notepad.java                                65              45              30          45    65         65             20          10
+# 1-bad_names-SampleData.java                             65              45              35          65    75         70             20          10
+# 1-bad_names-SampleTree.java                             85              45              35          65    85         75             40          10
+# 1-bad_names-SampleTreeCellRenderer.java                 65              45              30          75    85         75             30          10
+# 1-bad_names-SampleTreeModel.java                        75              65              60          75    85         85             85          30
+# 1-bad_names-Stylepad.java                               65              35              30          65    65         75             30          10
+# 1-bad_names-Wonderland.java                             65              45              30          40    75         65             40          10
+# 1-clean_code-DoubleSummaryStatistics.java               95              95              95          95    95         85             95          90
+# 1-clean_code-DynamicTreeNode.java                       85              85              85          85    85         85             75          60
