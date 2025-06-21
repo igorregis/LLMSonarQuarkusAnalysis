@@ -1,0 +1,18 @@
+Aspect,OC,I1,I2,I3
+Adherence to Best Practices,267,226,98,263
+Good Implementation/Logic,237,216,105,256
+Good Use of Language Features,78,88,15,89
+High Code Complexity,1440,1440,1440,1440
+Consistent Formatting,182,178,53,208
+Inconsistent Formatting,2,22,25,8
+Good Code Structure,1030,983,599,1115
+Bad Code Structure,125,155,74,116
+Good Documentation,287,32,161,250
+Lack of Documentation/Comments,17,64,31,22
+Unprofessional Comments,35,0,42,40
+Good Error Handling,65,132,20,92
+Poor Error Handling,19,72,18,28
+Good Readability,1068,933,438,1021
+Poor Readability,105,99,561,133
+Good Variable/Method Names,346,457,111,390
+Poor Variable/Method Names,4,2,890,22

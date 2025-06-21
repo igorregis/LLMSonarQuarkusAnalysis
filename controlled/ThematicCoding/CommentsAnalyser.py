@@ -1,48 +1,37 @@
-# aspect_keywords = {
-#     'Poor Variable/Method Names': ['poor variable', 'poor method names', 'bad variable', 'bad method names', 'inconsistent naming', 'non-standard method name', 'magic numbers', 'magic strings'],
-#     'Poor Readability': ['poor readability', 'hard to read', 'difficult to understand', 'unclear', 'less readable', 'hinder readability', 'cryptic', 'verbosity', 'verbose'],
-#     'Good Code Structure': ['well-structured', 'good structure', 'well-organized', 'good separation of concerns', 'modular design', 'clean structure', 'logical organization', 'well-organized inner classes', 'well-defined inner classes'],
-#     'Good Documentation': ['comprehensive documentation', 'good documentation', 'well-documented', 'JavaDoc comments', 'clear comments', 'descriptive JavaDoc comments', 'detailed comments'],
-#     'High Code Complexity': ['complex', 'complexity', 'nested', 'over-engineering', 'overly complex', 'convoluted', 'dense logic'],
-#     'Bad Code Structure': ['lacks ... structure', 'bad separation of concerns', 'over-engineering', 'spaghetti code', 'monolithic', 'tight coupling', 'hardcoded data'],
-#     'Lack of Documentation/Comments': ['lacks comprehensive comments', 'lacks documentation', 'minimal comments', 'unclear purpose', 'no documentation', 'missing javadoc', 'undocumented'],
-#     'Adherence to Best Practices': ['best practices', 'Java conventions', 'object-oriented principles', 'good practices', 'Java idioms', 'follows standard Java conventions', 'strong adherence to best practices'],
-#     'Good Implementation/Logic': ['excellent implementation', 'good implementation', 'clear method implementations', 'thoughtful design', 'clean implementation', 'straightforward', 'logical', 'efficient'],
-#     'Consistent Formatting': ['consistent formatting', 'well-formatted', 'consistent styling', 'consistent indentation'],
-#     'Good Variable/Method Names': ['clear method names', 'meaningful variable names', 'descriptive ... names', 'consistent naming'],
-#     'Good Error Handling': ['robust error handling', 'proper exception handling', 'handles potential exceptions'],
-#     'Poor Error Handling': ['error handling is minimal', 'swallowed exception', 'suppressed empty catch block', 'inconsistent ... error handling', 'ignores exceptions', 'empty catch block'],
-#     'Good Readability': ['high readability', 'good readability', 'clear', 'easy to understand', 'readable', 'self-explanatory', 'easy to follow'],
-#     'Unprofessional Comments': ['unprofessional'],
-#     'Inconsistent Formatting': ['inconsistent line breaks', 'inconsistent formatting'],
-#     'Good Use of Language Features': ['modern Java features', 'switch expressions', 'lambda', 'streams', 'Java generics', 'temporal interfaces']
-# }
-
 import re
 import pandas as pd
+from pathlib import Path
+from pandas.api.types import CategoricalDtype  # Import CategoricalDtype
 
-# The file path and aspect_keywords dictionary remain the same
-file_path = 'cleancode_reasoning.txt'
+# Define the paths and scenarios for all files
+file_data = {
+    'OC': 'original_code_reasoning.txt',
+    'I1': 'nocomments_code_reasoning.txt',
+    'I2': 'badnames_code_reasoning.txt',
+    'I3': 'cleancode_code_reasoning.txt'
+}
 
 aspect_keywords = {
     "Poor Variable/Method Names": [
         "poor variable",
-        "poor method names",
+        "poor method name",
         "bad variable",
-        "bad method names",
+        "bad method name",
         "inconsistent naming",
         "non-standard method name",
-        "magic numbers",
-        "magic strings",
-        "unconventional naming",
-        "confusing names",
-        "cryptic names",
+        "magic number",
+        "magic string",
+        "are unclear",
+        "unconventional",
+        "confusing",
+        "cryptic name",
+        "cryptic variable",
         "single-letter names",
         "food-related names",
         "vegetable-themed variable names",
-        "spice-related names",
-        "culinary terms",
-        "nonsensical names",
+        "spice-related name",
+        "culinary term",
+        "nonsensical name",
         "arbitrary naming"
     ],
     "Poor Readability": [
@@ -50,9 +39,9 @@ aspect_keywords = {
         "hard to read",
         "difficult to understand",
         "unclear",
+        "reduce readability",
         "less readable",
         "hinder readability",
-        "cryptic",
         "verbosity",
         "verbose",
         "hard to follow",
@@ -78,13 +67,25 @@ aspect_keywords = {
         "comprehensive documentation",
         "good documentation",
         "well-documented",
-        "JavaDoc comments",
-        "clear comments",
+        "JavaDoc comment",
+        "clear comment",
         "descriptive JavaDoc comments",
         "detailed comments",
         "comprehensive Javadoc",
-        "clear method comments",
-        "detailed JavaDoc comments"
+        "clear method comment",
+        "detailed JavaDoc"
+    ],
+    "Lack of Documentation/Comments": [
+        "lacks comprehensive comments",
+        "lacks comprehensive documentation",
+        "lacks documentation",
+        "minimal comments",
+        "unclear purpose",
+        "no documentation",
+        "missing javadoc",
+        "undocumented",
+        "lacks meaningful comments",
+        "lack of clear comments"
     ],
     "High Code Complexity": [
         "complex",
@@ -117,17 +118,6 @@ aspect_keywords = {
         "code duplication",
         "complex nested data structures",
         "inconsistent structure"
-    ],
-    "Lack of Documentation/Comments": [
-        "lacks comprehensive comments",
-        "lacks documentation",
-        "minimal comments",
-        "unclear purpose",
-        "no documentation",
-        "missing javadoc",
-        "undocumented",
-        "lacks meaningful comments",
-        "lack of clear comments"
     ],
     "Adherence to Best Practices": [
         "best practices",
@@ -216,7 +206,6 @@ aspect_keywords = {
     ]
 }
 
-# NEW: Define the pairs of negative and positive aspects
 negative_to_positive_pairs = {
     "Poor Variable/Method Names": "Good Variable/Method Names",
     "Poor Readability": "Good Readability",
@@ -226,64 +215,109 @@ negative_to_positive_pairs = {
     "Inconsistent Formatting": "Consistent Formatting",
 }
 
-aspect_counts = {aspect: 0 for aspect in aspect_keywords.keys()}
+# Dictionary to store counts for all scenarios
+all_scenario_counts = {aspect: {scenario_key: 0 for scenario_key in file_data.keys()} for aspect in aspect_keywords.keys()}
 
-with open(file_path, 'r') as f:
-    for line in f:
-        # Pre-process the line to make it lowercase and remove source tags
-        line_content = re.sub(r'\\', '', line).strip().lower()
+# Process each file
+for scenario_key, file_name in file_data.items():
+    file_path = Path(file_name)
+    current_aspect_counts = {aspect: 0 for aspect in aspect_keywords.keys()}
 
-        if not line_content:
-            continue
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line_content = re.sub(r'\\', '', line).strip().lower()
 
-        # NEW: First, find all aspects that match the current line
-        matched_aspects_in_line = set()
-        for aspect, keywords in aspect_keywords.items():
-            for keyword in keywords:
-                # Handle special patterns like "..."
-                if '...' in keyword:
-                    # Creates a regex to match any word between the start and end of the keyword
-                    pattern = r'\b' + re.escape(keyword).replace(r'\.\.\.', r'\s*\w*\s*') + r'\b'
-                else:
-                    pattern = r'\b' + re.escape(keyword) + r'\b'
+                if not line_content:
+                    continue
 
-                if re.search(pattern, line_content):
-                    matched_aspects_in_line.add(aspect)
-                    break  # Optimization: once an aspect is found, no need to check its other keywords
+                matched_aspects_in_line = set()
+                for aspect, keywords in aspect_keywords.items():
+                    for keyword in keywords:
+                        if '...' in keyword:
+                            pattern = r'\b' + re.escape(keyword).replace(r'\.\.\.', r'\s*\w*\s*') + r'\b'
+                        else:
+                            pattern = r'\b' + re.escape(keyword) + r'\b'
 
-        # NEW: Logic to exclude positive counts if a negative counterpart is present (to prevent false positive)
-        final_aspects_to_count = set(matched_aspects_in_line)
+                        if re.search(pattern, line_content):
+                            matched_aspects_in_line.add(aspect)
+                            break
 
-        for negative_aspect, positive_aspect in negative_to_positive_pairs.items():
-            # If both the negative and its corresponding positive aspect are in the line
-            if negative_aspect in matched_aspects_in_line and positive_aspect in matched_aspects_in_line:
-                # Remove the positive one from the set of aspects to be counted for this line
-                final_aspects_to_count.discard(positive_aspect)
+                # Logic to exclude positive counts if a negative counterpart is present (to prevent false positive)
+                final_aspects_to_count = set(matched_aspects_in_line)
 
-        # Increment the counts for the final filtered set
-        for aspect in final_aspects_to_count:
-            aspect_counts[aspect] += 1
+                for negative_aspect, positive_aspect in negative_to_positive_pairs.items():
+                    # If both the negative and its corresponding positive aspect are in the line
+                    if negative_aspect in matched_aspects_in_line and positive_aspect in matched_aspects_in_line:
+                        final_aspects_to_count.discard(positive_aspect)
 
-# Create the LaTeX table (this part remains unchanged)
+                for aspect in final_aspects_to_count:
+                    current_aspect_counts[aspect] += 1
+
+        # Transfer counts from the current file to the overall dictionary
+        for aspect, count in current_aspect_counts.items():
+            all_scenario_counts[aspect][scenario_key] = count
+
+    except FileNotFoundError:
+        print(f"Warning: File not found: {file_path}. Skipping this scenario.")
+    except Exception as e:
+        print(f"An error occurred while processing {file_path}: {e}")
+
+# Create DataFrame from the collected data
+df_data = []
+for aspect, counts_by_scenario in all_scenario_counts.items():
+    row = {'Aspect': aspect}
+    row.update(counts_by_scenario)
+    df_data.append(row)
+
+df = pd.DataFrame(df_data)
+
+# --- NEW: Define the custom order for 'Aspect' column ---
+custom_aspect_order = [
+    "Adherence to Best Practices",
+    "Good Implementation/Logic",
+    "Good Use of Language Features",
+    "High Code Complexity",
+    "Consistent Formatting",
+    "Inconsistent Formatting",
+    "Good Code Structure",
+    "Bad Code Structure",
+    "Good Documentation",
+    "Lack of Documentation/Comments",
+    "Unprofessional Comments",  # Ensure this is in your aspect_keywords if you want it to appear
+    "Good Error Handling",
+    "Poor Error Handling",
+    "Good Readability",
+    "Poor Readability",
+    "Good Variable/Method Names",
+    "Poor Variable/Method Names"
+]
+
+# Convert 'Aspect' column to a CategoricalDtype with the specified order
+# Any aspects found in data but not in custom_aspect_order will appear at the end, sorted alphabetically.
+# Any aspects in custom_aspect_order but not in data will not appear.
+df['Aspect'] = pd.Categorical(df['Aspect'], categories=custom_aspect_order, ordered=True)
+
+# Sort the DataFrame by the 'Aspect' column
+df_sorted = df.sort_values(by='Aspect').reset_index(drop=True)
+
+# Generate LaTeX table
 latex_table = """
 \\begin{table}[hbt]
     \\centering
-    \\tiny
-    \\caption{Code Evaluation}
-        \\begin{tabular}{lc}
+    \\scriptsize
+    \\caption{Code Evaluation Across Scenarios}
+    \\label{tab:thematic_coding}
+    \\begin{tabular}{l""" + "r" * len(file_data) + """}
         \\toprule
-        \\textbf{Aspect} & \\textbf{Scenario CC Count} \\\\
+        \\textbf{Theme} & """ + " & ".join([f"\\textbf{{{s}}}" for s in file_data.keys()]) + """ \\\\
         \\midrule
 """
 
-# Sort the aspects for a consistent table order
-sorted_aspects = sorted(aspect_counts.keys())
-
-for aspect in sorted_aspects:
-    count = aspect_counts[aspect]
-    # Escape underscores for LaTeX
-    aspect_name_latex = aspect.replace('_', '\\_')
-    latex_table += f"        {aspect_name_latex} & {count} \\\\\n"
+for index, row in df_sorted.iterrows():
+    aspect_name_latex = str(row['Aspect']).replace('_', '\\_')
+    counts = [str(row[scenario_key]) for scenario_key in file_data.keys()]
+    latex_table += f"        {aspect_name_latex} & " + " & ".join(counts) + " \\\\\n"
 
 latex_table += """        \\bottomrule
         \\end{tabular}
@@ -293,9 +327,8 @@ latex_table += """        \\bottomrule
 
 print(latex_table)
 
-# Create and save the DataFrame (this part remains unchanged)
-df = pd.DataFrame(list(aspect_counts.items()), columns=['Aspect', 'Scenario CC Count'])
-df_sorted = df.sort_values(by='Aspect').reset_index(drop=True)
-df_sorted.to_csv('code_evaluation_counts.csv', index=False)
+# Save the combined DataFrame to a single CSV
+output_csv_path = 'combined_code_reasoning_counts.csv'
+df_sorted.to_csv(output_csv_path, index=False)
 
-print("\\nCSV file 'code_evaluation_counts.csv' created successfully.")
+print(f"\nCombined CSV file '{output_csv_path}' created successfully.")
