@@ -5,11 +5,12 @@ The paper 1 (DOI [10.48550/arXiv.2408.07082](https://doi.org/10.48550/arXiv.2408
 
 ---
 **Paper 2** 
+You can find all data [here](https://github.com/igorregis/LLMSonarQuarkusAnalysis/tree/master/controlled)
 This paper performed a quasi-experiment to evaluate the responses given by 8 LLMs and SonarQube to 3 scenarios of interventions in source code snippets.
 
 ---
 **Paper 1** 
-
+You can find all data [here](https://github.com/igorregis/LLMSonarQuarkusAnalysis/tree/master/controlled)
 This paper performed a comparative study of code quality analysis using LLM, focusing on readability, comparing the results with a reference tool (SonarQube)
 
 **ATENTION**
