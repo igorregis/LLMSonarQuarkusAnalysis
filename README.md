@@ -16,4 +16,4 @@ You can find all data in the folders [Shatteredpixeldungeon](https://github.com/
 This paper performed a comparative study of code quality analysis using LLM, focusing on readability, comparing the results with a reference tool (SonarQube)
 
 **ATENTION**
-If you are looking for sourcode used to call LLMs as well as the code analysed by LLMs, than the data you are looking for is here: https://github.com/igorregis/sonarvsllm
+If you are looking for source code used to call LLMs as well as the code analysed by LLMs, than the data you are looking for is here: https://github.com/igorregis/sonarvsllm
