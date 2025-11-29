@@ -4,6 +4,7 @@ import krippendorff
 import pandas as pd
 from factor_analyzer import FactorAnalyzer
 import numpy as np
+import os
 
 import warnings
 # Isso irá filtrar o FutureWaning do scikit-learn
@@ -43,29 +44,48 @@ def loadScalabrino(file_path):
 
 def loadLLMScores(llm, dataset):
     dfs = []
+    n = 1  # Inicializa o contador
 
-    for n in range(1, 4):
+    while True:
         file_path = f"{llm}/classic{dataset}{llm}-{n}.json"
 
-        # lines=True é crucial pois o formato apresentado é NDJSON (um objeto por linha)
+        # Verifica se o arquivo existe antes de tentar ler
+        if not os.path.exists(file_path):
+            break
+
+        # lines=True é crucial pois o formato apresentado é NDJSON
         try:
             df_temp = pd.read_json(file_path, lines=True)
         except ValueError:
+            # Fallback para JSON padrão caso não seja NDJSON
             df_temp = pd.read_json(file_path)
 
-        df_temp = df_temp[['name', 'score']]
-        df_temp['score'] = df_temp['score'].astype(float) #/ 2 #Para carregar em escala likert 1 a 10 dividimos por 2
-        col_name = f"{llm}-{n}"
-        df_temp = df_temp.rename(columns={'score': col_name})
+        # Seleção e tratamento de colunas
+        if 'name' in df_temp.columns and 'score' in df_temp.columns:
+            df_temp = df_temp[['name', 'score']]
+            df_temp['score'] = df_temp['score'].astype(float)
 
-        # Define 'name' como índice para garantir o alinhamento correto na concatenação
-        df_temp = df_temp.set_index('name')
+            # Renomeia a coluna para identificar a rodada (n)
+            col_name = f"{llm}-{n}"
+            df_temp = df_temp.rename(columns={'score': col_name})
 
-        dfs.append(df_temp)
+            # Define 'name' como índice para alinhamento
+            df_temp = df_temp.set_index('name')
 
-    # Concatena todos os DataFrames horizontalmente (axis=1) alinhando pelo índice (name)
+            dfs.append(df_temp)
+
+        # Incrementa para buscar o próximo arquivo
+        n += 1
+
+    # Verifica se encontrou algum arquivo para evitar erro no concat
+    if not dfs:
+        print(f"Nenhum arquivo encontrado para {llm} / {dataset}")
+        return pd.DataFrame()
+
+    # Concatena todos os DataFrames horizontalmente
     df = pd.concat(dfs, axis=1)
     df = df.sort_index()
+
     return df
 
 
@@ -585,7 +605,21 @@ def print_results(all_results):
 df_human_scalabrino = loadScalabrinoHumanScores("Scalabrino/scores.csv")
 df_scalabrino = loadScalabrino('Scalabrino/scalabrino.csv')
 
-llms = ['Gemini25flash-lite-thinking', 'Gemini25flash-lite']# ,'DeepSeek-V3.2-Exp-thinking' , 'Gemini25flash-thinking']
+# 3 RUNS
+ #                                     LLM Kappa_x (Norm) Kappa_x (Bruto) Desacordo (Do) Desacordo (De) IRR Humano IRR Modelo
+ # DornPython - DeepSeek-V3.2-Exp-thinking         1.2573          0.9985      4389.2597   3000282.3083     0.7063     0.8930
+ #   DornCuda - DeepSeek-V3.2-Exp-thinking         1.2277          0.9989      3237.8294   2965097.4622     0.7071     0.9363
+ #   DornJava - DeepSeek-V3.2-Exp-thinking         1.2252          0.9986      4119.6621   2929710.4511     0.7074     0.9391
+
+ # 5 RUNS
+ #                                      LLM Kappa_x (Norm) Kappa_x (Bruto) Desacordo (Do) Desacordo (De) IRR Humano IRR Modelo
+ #             DornCuda - Kimi-K2-thinking         1.2328          0.9993      1947.5940   2982602.3199     0.7071     0.9293
+ # DornPython - DeepSeek-V3.2-Exp-thinking         1.2275          0.9985      4401.7881   3000122.2241     0.7063     0.9370
+ #           DornPython - Kimi-K2-thinking         1.2245          0.9990      2987.8452   3017751.7813     0.7063     0.9424
+ #   DornJava - DeepSeek-V3.2-Exp-thinking         1.2132          0.9986      4137.0576   2929600.5567     0.7074     0.9577
+ #   DornCuda - DeepSeek-V3.2-Exp-thinking         1.2118          0.9989      3247.3204   2965051.1233     0.7071     0.9609
+
+llms = ['Gemini25flash-lite-thinking', 'Gemini25flash-lite' ,'DeepSeek-V3.2-Exp-thinking', 'GPT-oss-120b-thinking','Kimi-K2-thinking']# , 'Gemini25flash-thinking']
 llm_dfs = {}
 llms_scores = {}
 df_omega = {}
