@@ -82,7 +82,9 @@ def loadLLMScores(llm, dataset):
         print(f"Nenhum arquivo encontrado para {llm} / {dataset}")
         return pd.DataFrame()
 
+
     # Concatena todos os DataFrames horizontalmente
+    # print(dfs)
     df = pd.concat(dfs, axis=1)
     df = df.sort_index()
 
@@ -571,35 +573,47 @@ def print_result(llm, xrr_results):
     print(df.to_string(index=False))
 
 
-def print_results(all_results):
+def print_results(all_results, filter_prefix=""):
     """
-    Imprime uma tabela comparativa com os resultados de xRR para todos os LLMs.
+    Imprime uma tabela comparativa com os resultados de xRR para todos os LLMs,
+    filtrando opcionalmente pelos nomes dos LLMs que começam com um prefixo.
 
     Args:
         all_results (dict): Dicionário onde a chave é o nome do LLM e o valor
                             é um dicionário com os resultados (xrr_results).
+        filter_prefix (str): String opcional usada para filtrar. Apenas LLMs
+                             cujos nomes (chaves) começam com esta string
+                             serão incluídos na tabela. O valor padrão ("")
+                             inclui todos os resultados.
     """
     rows = []
 
+    # Se o prefixo não for uma string vazia, a filtragem é aplicada.
     for llm, results in all_results.items():
-        # Criação de uma linha para o LLM atual
-        row = {
-            "LLM": llm,
-            "Kappa_x (Norm)": f"{results['normalized_kappa_x']:.4f}",
-            "Kappa_x (Bruto)": f"{results['kappa_x']:.4f}",
-            "Desacordo (Do)": f"{results['d_o']:.4f}",
-            "Desacordo (De)": f"{results['d_e']:.4f}",
-            "IRR Humano": f"{results['irr_human']:.4f}",
-            "IRR Modelo": f"{results['irr_llm']:.4f}"
-        }
-        rows.append(row)
+        if not filter_prefix or llm.startswith(filter_prefix):
+            # Criação de uma linha para o LLM atual
+            row = {
+                "LLM": llm,
+                "Kappa_x (Norm)": f"{results['normalized_kappa_x']:.4f}",
+                "Kappa_x (Bruto)": f"{results['kappa_x']:.4f}",
+                "Desacordo (Do)": f"{results['d_o']:.4f}",
+                "Desacordo (De)": f"{results['d_e']:.4f}",
+                "IRR Humano": f"{results['irr_human']:.4f}",
+                "IRR Modelo": f"{results['irr_llm']:.4f}"
+            }
+            rows.append(row)
 
-    # Criação do DataFrame com todas as linhas de uma vez
+    # Verifica se há resultados após a filtragem
+    if not rows:
+        print(f"Nenhum resultado encontrado para o prefixo: '{filter_prefix}'")
+        return
+
+    # Criação do DataFrame com as linhas filtradas
     df = pd.DataFrame(rows)
 
-    # Exibição da tabela completa
-    print(df.sort_values(by=['Kappa_x (Norm)'], ascending=False).to_string(index=False))
-
+    # Exibição da tabela filtrada
+    df = df.sort_values(by=['Kappa_x (Norm)'], ascending=False).to_string(index=False)
+    print(df)
 ##########################################################################--------------------------------------------
 
 df_human_scalabrino = loadScalabrinoHumanScores("Scalabrino/scores.csv")
@@ -619,7 +633,23 @@ df_scalabrino = loadScalabrino('Scalabrino/scalabrino.csv')
  #   DornJava - DeepSeek-V3.2-Exp-thinking         1.2132          0.9986      4137.0576   2929600.5567     0.7074     0.9577
  #   DornCuda - DeepSeek-V3.2-Exp-thinking         1.2118          0.9989      3247.3204   2965051.1233     0.7071     0.9609
 
-llms = ['Gemini25flash-lite-thinking', 'Gemini25flash-lite' ,'DeepSeek-V3.2-Exp-thinking', 'GPT-oss-120b-thinking','Kimi-K2-thinking']# , 'Gemini25flash-thinking']
+  #                                      LLM Kappa_x (Norm) Kappa_x (Bruto) Desacordo (Do) Desacordo (De) IRR Humano IRR Modelo
+  # DornPython - Qwen3-235B-A22B-2507-thinking         1.2587          0.9984      4826.5405   2997523.1298     0.7063     0.8908
+  # DornCuda - Qwen3-235B-A22B-2507-thinking         1.2410          0.9988      3585.0250   2962974.2973     0.7071     0.9160
+  # DornJava - Qwen3-235B-A22B-2507-thinking         1.2363          0.9984      4713.8926   2925235.2778     0.7074     0.9218
+
+#                                       LLM Kappa_x (Norm) Kappa_x (Bruto) Desacordo (Do) Desacordo (De) IRR Humano IRR Modelo
+#                DornCuda - Kimi-K2-thinking         1.2328          0.9993      1947.5940   2982602.3199     0.7071     0.9293
+# DornPython - Qwen3-235B-A22B-2507-thinking         1.2314          0.9984      4794.6194   2997784.1409     0.7063     0.9307
+#    DornPython - DeepSeek-V3.2-Exp-thinking         1.2275          0.9985      4401.7881   3000122.2241     0.7063     0.9370
+#              DornPython - Kimi-K2-thinking         1.2245          0.9990      2987.8452   3017751.7813     0.7063     0.9424
+#   DornJava - Qwen3-235B-A22B-2507-thinking         1.2179          0.9984      4705.8940   2925306.8651     0.7074     0.9500
+#   DornCuda - Qwen3-235B-A22B-2507-thinking         1.2152          0.9988      3605.8360   2962745.9947     0.7071     0.9553
+
+llms = ['Gemini25flash-lite-thinking', 'Gemini25flash-lite' , #'Gemini25flash-thinking', #'Gemini25flash',
+        'DeepSeek-V3.2-Exp-thinking', 'GPT-oss-120b-thinking','Llama-4-Scout-17B-16E-Instruct-FP8',
+        'Kimi-K2-thinking', 'Qwen3-235B-A22B-2507-thinking', 'grok-4-0709-thinking', 'grok-4-1-fast-thinking',
+        'GPT-51-thinking']
 llm_dfs = {}
 llms_scores = {}
 df_omega = {}
@@ -674,8 +704,7 @@ xrr_results = calculate_xrr_metrics(
 all_results['Scalabrino'] = xrr_results
 # print_result('Scalabrino', xrr_results)
 
-print("Dorn")
-
+#Dorn
 languages = ['Cuda', 'Java', 'Python']
 snippet_index = {'Cuda':0, 'Java':101, 'Python':0}
 df_human = {}
@@ -711,4 +740,8 @@ for language in languages:
         # print_result(f'{llm} ({language})', xrr_results)
 
 
-print_results(all_results)
+print_results(all_results, 'Scalabrino')
+
+print_results(all_results, 'DornCuda')
+print_results(all_results, 'DornJava')
+print_results(all_results, 'DornPython')
